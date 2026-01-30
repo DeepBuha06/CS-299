@@ -179,6 +179,18 @@ def main():
     print("\n" + "=" * 60)
     print(f"Training complete! Best accuracy: {best_accuracy:.4f}")
     print("=" * 60)
+    
+    # Save final metrics
+    final_metrics = {
+        "test_accuracy": float(best_accuracy),
+        "test_loss": float(test_metrics["loss"]),
+        "test_precision": float(test_metrics["precision"]),
+        "test_recall": float(test_metrics["recall"]),
+        "test_f1": float(test_metrics["f1"])
+    }
+    with open(Config.MODEL_DIR / "metrics.json", "w") as f:
+        json.dump(final_metrics, f, indent=2)
+    print(f"Saved metrics to {Config.MODEL_DIR / 'metrics.json'}")
 
 
 if __name__ == "__main__":
