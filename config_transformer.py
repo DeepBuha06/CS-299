@@ -26,7 +26,7 @@ class TransformerConfig:
     BATCH_SIZE = 16  # Smaller batch size due to memory constraints
     LEARNING_RATE = 2e-5  # Standard learning rate for fine-tuning
     WEIGHT_DECAY = 0.01
-    NUM_EPOCHS = 3  # Transformers converge faster
+    NUM_EPOCHS = 1  # Single epoch for quick training
     WARMUP_RATIO = 0.1  # Warmup for 10% of training steps
     
     # Gradient settings
