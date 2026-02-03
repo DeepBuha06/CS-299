@@ -173,7 +173,7 @@ def main():
         # Save best model
         if test_metrics["accuracy"] > best_accuracy:
             best_accuracy = test_metrics["accuracy"]
-            torch.save(model.state_dict(), Config.MODEL_DIR / "best_model.pt")
+            torch.save(model.state_dict(), Config.MODEL_DIR / "bilstm_model.pt")
             print(f"Saved best model (accuracy: {best_accuracy:.4f})")
     
     print("\n" + "=" * 60)
@@ -188,9 +188,9 @@ def main():
         "test_recall": float(test_metrics["recall"]),
         "test_f1": float(test_metrics["f1"])
     }
-    with open(Config.MODEL_DIR / "metrics.json", "w") as f:
+    with open(Config.MODEL_DIR / "bilstm_metrics.json", "w") as f:
         json.dump(final_metrics, f, indent=2)
-    print(f"Saved metrics to {Config.MODEL_DIR / 'metrics.json'}")
+    print(f"Saved metrics to {Config.MODEL_DIR / 'bilstm_metrics.json'}")
 
 
 if __name__ == "__main__":

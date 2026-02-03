@@ -80,7 +80,7 @@ def load_model():
     )
     
     # Load trained weights
-    model_path = project_root / "checkpoints" / "best_model.pt"
+    model_path = project_root / "checkpoints" / "bilstm_model.pt"
     checkpoint = torch.load(model_path, map_location='cpu')
     
     # Handle different checkpoint formats
@@ -150,7 +150,7 @@ def predict():
 def metrics():
     """Return model metrics."""
     project_root = Path(__file__).parent.parent
-    metrics_path = project_root / "checkpoints" / "metrics.json"
+    metrics_path = project_root / "checkpoints" / "bilstm_metrics.json"
     
     with open(metrics_path, 'r') as f:
         metrics_data = json.load(f)

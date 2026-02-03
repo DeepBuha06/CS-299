@@ -108,7 +108,7 @@ def main():
     )
     
     # Load model
-    model_path = Config.MODEL_DIR / "best_model.pt"
+    model_path = Config.MODEL_DIR / "bilstm_model.pt"
     if not model_path.exists():
         print(f"Model not found at {model_path}")
         print("Please train the model first using train.py")
