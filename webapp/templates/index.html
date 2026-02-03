@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentiment Analysis - BiLSTM with Attention</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-text">
+                    <h1>Sentiment Analyzer</h1>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <section class="input-section">
+                <div class="card glass-card">
+                    <div class="card-header">
+                        <h2>Enter Your Review</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="textarea-wrapper">
+                            <textarea id="reviewInput" placeholder="Enter your movie review here... "
+                                rows="6"></textarea>
+                            <div class="char-count">
+                                <span id="charCount">0</span> characters
+                            </div>
+                        </div>
+                        <button id="analyzeBtn" class="analyze-btn">
+                            <span class="btn-text">Analyze</span>
+                            <span class="btn-loader hidden">
+                                <span class="loader"></span>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="resultSection" class="result-section hidden">
+                <div class="result-cards">
+                    <div id="sentimentCard" class="card result-card">
+                        <div class="sentiment-display">
+                            <div id="sentimentLabel" class="sentiment-label">Positive</div>
+                            <div class="prediction-info">
+                                <div class="info-row">
+                                    <span class="info-title">Probability:</span>
+                                    <span id="probabilityValue" class="info-value">0%</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-title">Confidence:</span>
+                                    <span id="confidenceValue" class="info-value">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card attention-card">
+                        <div class="card-header">
+                            <h3>🔍 Attention Visualization</h3>
+                            <p>Words that influenced the model's decision</p>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="attentionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <footer class="footer">
+                <div class="model-info">
+                    <div class="info-item">
+                        <span class="info-label">Architecture</span>
+                        <span class="info-value">BiLSTM + Additive Attention</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Accuracy</span>
+                        <span class="info-value" id="modelAccuracy">86.2%</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">F1 Score</span>
+                        <span class="info-value" id="modelF1">0.854</span>
+                    </div>
+                </div>
+            </footer>
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>
