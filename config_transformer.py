@@ -20,7 +20,7 @@ class TransformerConfig:
     NUM_LABELS = 2  # Binary classification (positive/negative)
     
     # Data settings
-    MAX_SEQ_LENGTH = 512  # Maximum sequence length for transformer
+    MAX_SEQ_LENGTH = 256  # Maximum sequence length for transformer
     
     # Training settings
     BATCH_SIZE = 16  # Smaller batch size due to memory constraints

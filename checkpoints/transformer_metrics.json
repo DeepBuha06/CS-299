@@ -1,0 +1,8 @@
+{
+  "test_accuracy": 0.9076,
+  "test_loss": 0.22867133154254346,
+  "test_precision": 0.8989195114312559,
+  "test_recall": 0.91848,
+  "test_f1": 0.9085944919278253,
+  "model": "distilbert-base-uncased"
+}
