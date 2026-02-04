@@ -9,11 +9,26 @@ document.addEventListener('DOMContentLoaded', function () {
     const sentimentCard = document.getElementById('sentimentCard');
     const sentimentLabel = document.getElementById('sentimentLabel');
     const confidenceValue = document.getElementById('confidenceValue');
+    const modelSelect = document.getElementById('modelSelect');
+    const modelBadge = document.getElementById('modelBadge');
+    const currentModelDisplay = document.getElementById('currentModel');
 
     // Character counter
     reviewInput.addEventListener('input', function () {
         charCount.textContent = this.value.length;
     });
+
+    // Model selection change
+    modelSelect.addEventListener('change', function () {
+        updateModelDisplay();
+        loadMetrics();
+    });
+
+    // Update model display in footer
+    function updateModelDisplay() {
+        const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+        currentModelDisplay.textContent = selectedOption.text;
+    }
 
     // Analyze button click
     analyzeBtn.addEventListener('click', analyzeSentiment);
@@ -28,6 +43,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Main analysis function
     async function analyzeSentiment() {
         const text = reviewInput.value.trim();
+        const selectedModel = modelSelect.value;
 
         if (!text) {
             showError('Please enter a review to analyze');
@@ -44,7 +60,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ review: text })
+                body: JSON.stringify({
+                    review: text,
+                    model: selectedModel
+                })
             });
 
             const data = await response.json();
@@ -73,6 +92,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Update sentiment card class
         sentimentCard.className = 'card result-card ' + data.sentiment;
+
+        // Update model badge
+        modelBadge.textContent = data.model || 'Unknown Model';
+        if (data.model && data.model.includes('Transformer')) {
+            modelBadge.classList.add('transformer');
+        } else {
+            modelBadge.classList.remove('transformer');
+        }
 
         // Update label
         if (data.sentiment === 'positive') {
@@ -223,24 +250,34 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Load model metrics
     async function loadMetrics() {
+        const selectedModel = modelSelect.value;
+
         try {
-            const response = await fetch('/metrics');
+            const response = await fetch('/metrics?model=' + selectedModel);
             const data = await response.json();
 
             if (data.test_accuracy) {
                 document.getElementById('modelAccuracy').textContent =
                     (data.test_accuracy * 100).toFixed(1) + '%';
+            } else {
+                document.getElementById('modelAccuracy').textContent = '--';
             }
+
             if (data.test_f1) {
                 document.getElementById('modelF1').textContent =
                     data.test_f1.toFixed(3);
+            } else {
+                document.getElementById('modelF1').textContent = '--';
             }
         } catch (error) {
             console.log('Could not load metrics');
+            document.getElementById('modelAccuracy').textContent = '--';
+            document.getElementById('modelF1').textContent = '--';
         }
     }
 
     // Initialize
+    updateModelDisplay();
     loadMetrics();
 
     // Add animation styles

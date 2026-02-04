@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentiment Analysis - BiLSTM with Attention</title>
+    <title>Sentiment Analysis - Multi-Model</title>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -17,6 +17,7 @@
             <div class="logo">
                 <div class="logo-text">
                     <h1>Sentiment Analyzer</h1>
+                    <p class="subtitle">Compare BiLSTM and Transformer Models</p>
                 </div>
             </div>
         </header>
@@ -28,6 +29,15 @@
                         <h2>Enter Your Review</h2>
                     </div>
                     <div class="card-body">
+                        <!-- Model Selection -->
+                        <div class="model-selection">
+                            <label for="modelSelect" class="model-label">Select Model:</label>
+                            <select id="modelSelect" class="model-select">
+                                <option value="bilstm">BiLSTM + Attention</option>
+                                <option value="transformer">Transformer (DistilBERT)</option>
+                            </select>
+                        </div>
+                        
                         <div class="textarea-wrapper">
                             <textarea id="reviewInput" placeholder="Enter your movie review here... "
                                 rows="6"></textarea>
@@ -48,6 +58,7 @@
             <section id="resultSection" class="result-section hidden">
                 <div class="result-cards">
                     <div id="sentimentCard" class="card result-card">
+                        <div class="model-badge" id="modelBadge">BiLSTM + Attention</div>
                         <div class="sentiment-display">
                             <div id="sentimentLabel" class="sentiment-label">Positive</div>
                             <div class="prediction-info">
@@ -78,16 +89,16 @@
             <footer class="footer">
                 <div class="model-info">
                     <div class="info-item">
-                        <span class="info-label">Architecture</span>
-                        <span class="info-value">BiLSTM + Additive Attention</span>
+                        <span class="info-label">Current Model</span>
+                        <span class="info-value" id="currentModel">BiLSTM + Attention</span>
                     </div>
                     <div class="info-item">
                         <span class="info-label">Accuracy</span>
-                        <span class="info-value" id="modelAccuracy">86.2%</span>
+                        <span class="info-value" id="modelAccuracy">--</span>
                     </div>
                     <div class="info-item">
                         <span class="info-label">F1 Score</span>
-                        <span class="info-value" id="modelF1">0.854</span>
+                        <span class="info-value" id="modelF1">--</span>
                     </div>
                 </div>
             </footer>
