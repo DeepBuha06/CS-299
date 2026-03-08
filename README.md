@@ -1,14 +1,112 @@
-# 🎬 Sentiment Analysis - Attention Visualizer
+# Attention is NOT Explanation: Implementation & Experiments
 
-Live sentiment analysis web application comparing BiLSTM with Attention and Transformer (DistilBERT) models for IMDB movie reviews.
+Implementation of the paper **"Attention is not Explanation"** by Jain & Wallace (2019) to empirically test whether attention weights provide faithful explanations of model predictions.
 
-## 🌟 Features
+## 📄 Research Question
 
-- **Dual Model Architecture**: Switch between BiLSTM + Attention and DistilBERT Transformer
-- **Real-time Sentiment Analysis**: Instant predictions on movie reviews
-- **Attention Visualization**: See which words influenced the model's decision
-- **Interactive UI**: Clean, modern interface with responsive design
-- **Model Metrics**: View accuracy, F1 score, precision, and recall
+**Can attention weights be trusted as explanations for model predictions?**
+
+This project implements experiments to test the claim that attention mechanisms, while useful for model performance, do not necessarily provide reliable explanations of how neural networks make decisions.
+
+## 🎯 Project Status
+
+### 📊 Dataset & Task
+- **Dataset**: IMDB Movie Reviews (50,000 reviews)
+- **Task**: Binary Sentiment Classification (Positive/Negative)
+- **Split**: 25,000 training, 25,000 testing
+- **Domain**: Movie review text analysis
+
+### ✅ Completed (Phase 1: Model Setup)
+- BiLSTM with Attention mechanism (86.2% accuracy on IMDB)
+- Transformer (DistilBERT) fine-tuned (90.8% accuracy on IMDB)
+- Attention weight extraction for both architectures
+- Web interface for attention visualization
+- Baseline performance established on sentiment classification
+
+### 🔬 In Progress (Phase 2: Experiments from Paper)
+The following experiments from the paper are yet to be implemented:
+
+1. **Attention vs Gradient Correlation** - Test if attention correlates with gradient-based feature importance
+2. **Adversarial Attention** - Create different attention distributions that yield same predictions
+3. **Permutation Tests** - Verify if high-attention words are truly important
+4. **Counterfactual Analysis** - Test causal relationship between attention and predictions
+5. **Attention Weight Randomization** - Compare model behavior with shuffled attention
+
+## 🏗️ Project Structure
+
+```
+CS-299/
+├── webapp/
+│   ├── app.py              # Flask application
+│   ├── static/
+│   │   ├── script.js       # Frontend JavaScript
+│   │   └── style.css       # Styles
+│   └── templates/
+│       └── index.html      # Main page
+├── models/                 # BiLSTM model architecture
+├── models_transformer/     # Transformer model architecture
+├── checkpoints/
+│   ├── bilstm_model.pt     # Trained BiLSTM weights
+│   ├── transformer_model.pt # Trained Transformer weights
+│   ├── bilstm_metrics.json
+│   └── transformer_metrics.json
+├── vocab.json              # Vocabulary for BiLSTM
+├── requirements.txt        # Python dependencies
+├── Procfile               # Deployment configuration
+└── render.yaml            # Render deployment config
+```
+
+## 📊 Model Performance (IMDB Sentiment Analysis)
+
+Both models trained on binary sentiment classification (Positive/Negative reviews):
+
+### BiLSTM + Attention
+- **Accuracy**: 86.2%
+- **F1 Score**: 85.4%
+- **Precision**: 90.7%
+- **Recall**: 80.7%
+- **Architecture**: Bidirectional LSTM with Additive Attention
+
+### Transformer (DistilBERT)
+- **Accuracy**: 90.8%
+- **F1 Score**: 90.9%
+- **Precision**: 89.9%
+- **Recall**: 91.8%
+- **Architecture**: Fine-tuned DistilBERT
+
+**Dataset**: IMDB Movie Reviews (25,000 train / 25,000 test)
+
+## 🔬 Research Methodology
+
+### Paper Reference
+**"Attention is not Explanation"** - Sarthak Jain & Byron C. Wallace (2019)
+[Paper Link](https://arxiv.org/abs/1902.10186)
+
+### Key Claims to Test
+1. **Attention weights do not correlate with gradient-based measures** of feature importance
+2. **Adversarial attention distributions exist** - different attention can yield same predictions
+3. **High attention ≠ high importance** - removing high-attention words may not change predictions
+
+### Experimental Pipeline
+```
+Phase 1: Setup ✅
+├── Build attention-based models (BiLSTM + Transformer)
+├── Train on IMDB sentiment dataset
+├── Extract attention weights
+└── CrCurrent Usage (Baseline Models)
+
+The webapp currently provides:
+1. **Model Selection**: BiLSTM + Attention or DistilBERT Transformer
+2. **Sentiment Prediction**: Binary classification (Positive/Negative)
+3. **Attention Visualization**: View attention weights (not necessarily explanations!)
+4. **Performance Metrics**: Accuracy, F1, Precision, Recall
+
+**Note**: The attention visualizations show what the model *attends to*, but experiments will test whether this actually *explains* the predictions.ming)
+├── Quantitative results comparison
+├── Visualization of findings
+├── Documentation of limitations
+└── Conclusion validation
+```
 
 ## 🚀 Quick Start
 
@@ -35,136 +133,6 @@ python webapp/app.py
 http://localhost:5000
 ```
 
-## 📦 Deployment
-
-### Deploy to Render (Recommended)
-
-1. **Push to GitHub** (if not already done)
-```bash
-git add .
-git commit -m "Add deployment configuration"
-git push origin main
-```
-
-2. **Create Render Account**
-   - Go to [render.com](https://render.com)
-   - Sign up with GitHub
-
-3. **Deploy**
-   - Click "New +" → "Web Service"
-   - Connect your GitHub repository: `Ramji-Purwar/CS-299`
-   - Render will automatically detect `render.yaml`
-   - Click "Create Web Service"
-
-4. **Wait for deployment** (5-10 minutes)
-   - Models will be loaded automatically
-   - You'll get a live URL like: `https://sentiment-analysis-webapp.onrender.com`
-
-### Deploy to Heroku
-
-```bash
-# Install Heroku CLI
-heroku login
-heroku create sentiment-analysis-app
-
-# Deploy
-git push heroku main
-
-# Open app
-heroku open
-```
-
-### Deploy to Railway
-
-1. Go to [railway.app](https://railway.app)
-2. "New Project" → "Deploy from GitHub repo"
-3. Select `Ramji-Purwar/CS-299`
-4. Railway auto-detects and deploys
-
-## 🏗️ Project Structure
-
-```
-CS-299/
-├── webapp/
-│   ├── app.py              # Flask application
-│   ├── static/
-│   │   ├── script.js       # Frontend JavaScript
-│   │   └── style.css       # Styles
-│   └── templates/
-│       └── index.html      # Main page
-├── models/                 # BiLSTM model architecture
-├── models_transformer/     # Transformer model architecture
-├── checkpoints/
-│   ├── bilstm_model.pt     # Trained BiLSTM weights
-│   ├── transformer_model.pt # Trained Transformer weights
-│   ├── bilstm_metrics.json
-│   └── transformer_metrics.json
-├── vocab.json              # Vocabulary for BiLSTM
-├── requirements.txt        # Python dependencies
-├── Procfile               # Deployment configuration
-└── render.yaml            # Render deployment config
-```
-
-## 📊 Model Performance
-
-### BiLSTM + Attention
-- **Accuracy**: 86.2%
-- **F1 Score**: 85.4%
-- **Architecture**: Bidirectional LSTM with Additive Attention
-
-### Transformer (DistilBERT)
-- **Accuracy**: 90.8%
-- **F1 Score**: 90.9%
-- **Architecture**: Fine-tuned DistilBERT
-
-## 🔬 Research Context
-
-This project implements models from the paper:
-**"Attention is not Explanation"** - Jain & Wallace (2019)
-
-The webapp demonstrates:
-- How attention mechanisms work in neural networks
-- Visual interpretation of model decisions
-- Comparison between different architectures
-
-## 🛠️ Technologies
-
-- **Backend**: Flask, PyTorch
-- **Frontend**: HTML, CSS, JavaScript, Chart.js
-- **Models**: BiLSTM, DistilBERT (HuggingFace Transformers)
-- **Dataset**: IMDB Movie Reviews (50k reviews)
-
-## 📝 Usage
-
-1. **Select Model**: Choose between BiLSTM or Transformer
-2. **Enter Review**: Type or paste a movie review
-3. **Analyze**: Click the analyze button
-4. **View Results**:
-   - Sentiment prediction (Positive/Negative)
-   - Confidence score
-   - Attention weights visualization
-   - Top influential words
-
-## ⚙️ Configuration
-
-Edit model parameters in:
-- `config.py` - BiLSTM configuration
-- `config_transformer.py` - Transformer configuration
-
-## 🤝 Contributing
-
-Contributions welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-MIT License
-
-## 👤 Author
-
-**Ramji Purwar**
-- GitHub: [@Ramji-Purwar](https://github.com/Ramji-Purwar)
-- Repository: [CS-299](https://github.com/Ramji-Purwar/CS-299)
-
 ## 🙏 Acknowledgments
 
 - IMDB Dataset
@@ -172,5 +140,3 @@ MIT License
 - "Attention is not Explanation" paper authors
 
 ---
-
-⭐ Star this repo if you find it helpful!
