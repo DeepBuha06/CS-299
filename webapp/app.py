@@ -19,8 +19,14 @@ from config import Config
 from config_transformer import TransformerConfig
 from models_transformer.model import TransformerClassifier
 from models_transformer.dataset import get_tokenizer
+from webapp.experiment_routes import experiment2_bp
+from webapp.experiment1_routes import experiment1_bp
 
 app = Flask(__name__)
+
+# Register blueprints
+app.register_blueprint(experiment2_bp)
+app.register_blueprint(experiment1_bp)
 
 # Global model and vocab
 bilstm_model = None
@@ -87,7 +93,7 @@ def load_bilstm_model():
     # Load trained weights
     model_path = project_root / "checkpoints" / "bilstm_model.pt"
     if model_path.exists():
-        checkpoint = torch.load(model_path, map_location='cpu')
+        checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
         
         # Handle different checkpoint formats
         if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
@@ -122,7 +128,7 @@ def load_transformer_model():
     # Load trained weights
     model_path = project_root / "checkpoints" / TransformerConfig.MODEL_CHECKPOINT
     if model_path.exists():
-        checkpoint = torch.load(model_path, map_location='cpu')
+        checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
         
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
             transformer_model.load_state_dict(checkpoint["model_state_dict"])
@@ -264,6 +270,18 @@ def predict_with_transformer(text):
 def index():
     """Render the main page."""
     return render_template('index.html')
+
+
+@app.route('/experiment2')
+def experiment2():
+    """Render the experiment 2 page."""
+    return render_template('experiment2.html')
+
+
+@app.route('/experiment1')
+def experiment1():
+    """Render the experiment 1 page."""
+    return render_template('experiment1.html')
 
 
 @app.route('/predict', methods=['POST'])

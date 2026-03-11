@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Experiment 1 - Attention vs Feature Importance</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .experiment-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .experiment-header {
+            text-align: center;
+            padding: 30px 0 10px;
+        }
+
+        .experiment-header h1 {
+            color: #2d3436;
+            font-size: 1.8em;
+        }
+
+        .experiment-header p {
+            color: #636e72;
+            font-size: 1em;
+            margin-top: 5px;
+        }
+
+        .input-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+
+        .input-section textarea {
+            width: 100%;
+            min-height: 80px;
+            border: 2px solid #dfe6e9;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 14px;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+
+        .input-section textarea:focus {
+            border-color: #6c5ce7;
+            outline: none;
+        }
+
+        .sample-buttons {
+            margin: 10px 0;
+        }
+
+        .sample-btn {
+            background: #6c5ce7;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 16px;
+            cursor: pointer;
+            margin: 4px;
+            font-size: 13px;
+        }
+
+        .sample-btn:hover {
+            background: #5a4bd1;
+        }
+
+        .run-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .run-btn:hover {
+            opacity: 0.9;
+        }
+
+        .run-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .results-section {
+            display: none;
+            margin-top: 25px;
+        }
+
+        .results-section.active {
+            display: block;
+        }
+
+        .finding-box {
+            background: linear-gradient(135deg, #dfe6e9, #b2bec3);
+            border-left: 5px solid #6c5ce7;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .finding-box h3 {
+            color: #2d3436;
+            margin: 0 0 8px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 10px;
+            padding: 18px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: 700;
+        }
+
+        .metric-label {
+            font-size: 0.85em;
+            color: #636e72;
+            margin-top: 4px;
+        }
+
+        .tau-good {
+            color: #00b894;
+        }
+
+        .tau-weak {
+            color: #e17055;
+        }
+
+        .tau-moderate {
+            color: #fdcb6e;
+        }
+
+        .token-table-container {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+
+        table.token-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        table.token-table th {
+            background: #6c5ce7;
+            color: white;
+            padding: 10px 8px;
+            text-align: left;
+        }
+
+        table.token-table td {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        table.token-table tr:hover {
+            background: #f1f0ff;
+        }
+
+        .bar {
+            display: inline-block;
+            height: 16px;
+            border-radius: 3px;
+            vertical-align: middle;
+        }
+
+        .bar-attn {
+            background: #6c5ce7;
+        }
+
+        .bar-grad {
+            background: #00b894;
+        }
+
+        .bar-loo {
+            background: #e17055;
+        }
+
+        .top-words {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        .top-words-card {
+            flex: 1;
+            min-width: 220px;
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .top-words-card h4 {
+            margin: 0 0 10px;
+            font-size: 0.95em;
+        }
+
+        .top-words-card ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .top-words-card li {
+            margin: 3px 0;
+            font-size: 13px;
+        }
+
+        .error-display {
+            display: none;
+            background: #ffeef0;
+            border-left: 4px solid #e17055;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            color: #721c24;
+        }
+
+        .nav-link {
+            display: inline-block;
+            margin: 10px 0;
+            color: #6c5ce7;
+            text-decoration: none;
+        }
+
+        .nav-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="experiment-container">
+        <a href="/" class="nav-link">← Back to Sentiment Analyzer</a>
+        <a href="/experiment2" class="nav-link" style="float:right;">Experiment 2: Adversarial Attention →</a>
+
+        <div class="experiment-header">
+            <h1>Experiment 1 — Attention vs Feature Importance</h1>
+            <p>Paper Section 4.1: Do attention weights correlate with gradient & leave-one-out importance?</p>
+        </div>
+
+        <div class="input-section">
+            <textarea id="textInput" placeholder="Enter text to analyze attention vs feature importance..."></textarea>
+            <div class="sample-buttons">
+                Try sample:
+                <button class="sample-btn" onclick="loadSample('positive')">Positive</button>
+                <button class="sample-btn" onclick="loadSample('negative')">Negative</button>
+                <button class="sample-btn" onclick="loadSample('neutral')">Neutral</button>
+            </div>
+            <button class="run-btn" id="runBtn" onclick="runExperiment()">
+                <span id="btnText">Run Analysis</span>
+            </button>
+        </div>
+
+        <div id="errorDisplay" class="error-display"></div>
+
+        <div id="resultsSection" class="results-section">
+            <div class="finding-box">
+                <h3>Key Finding</h3>
+                <p id="keyFinding">Loading...</p>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value" id="tauGrad">—</div>
+                    <div class="metric-label">τ<sub>gradient</sub> (Kendall)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="tauLoo">—</div>
+                    <div class="metric-label">τ<sub>LOO</sub> (Kendall)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="prediction">—</div>
+                    <div class="metric-label">Model Prediction</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="numTokens">—</div>
+                    <div class="metric-label">Tokens Analyzed</div>
+                </div>
+            </div>
+
+            <div class="top-words">
+                <div class="top-words-card">
+                    <h4 style="color:#6c5ce7;">🔵 Top by Attention</h4>
+                    <ol id="topAttention"></ol>
+                </div>
+                <div class="top-words-card">
+                    <h4 style="color:#00b894;">🟢 Top by Gradient</h4>
+                    <ol id="topGradient"></ol>
+                </div>
+                <div class="top-words-card">
+                    <h4 style="color:#e17055;">🔴 Top by LOO</h4>
+                    <ol id="topLoo"></ol>
+                </div>
+            </div>
+
+            <h3>Per-Token Comparison</h3>
+            <div class="token-table-container">
+                <table class="token-table" id="tokenTable">
+                    <thead>
+                        <tr>
+                            <th>Token</th>
+                            <th>Attention</th>
+                            <th>Gradient</th>
+                            <th>LOO</th>
+                            <th>Visual</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tokenTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const samples = {
+            positive: "This movie was absolutely fantastic! Great acting and brilliant storyline.",
+            negative: "Terrible movie! Complete waste of time and money. Very disappointing.",
+            neutral: "The movie had interesting cinematography but the plot was somewhat predictable."
+        };
+
+        function loadSample(type) {
+            document.getElementById('textInput').value = samples[type] || '';
+        }
+
+        function colorTau(val) {
+            const abs = Math.abs(val);
+            if (abs >= 0.5) return 'tau-good';
+            if (abs >= 0.3) return 'tau-moderate';
+            return 'tau-weak';
+        }
+
+        async function runExperiment() {
+            const text = document.getElementById('textInput').value.trim();
+            if (!text) { alert('Please enter text.'); return; }
+
+            const btn = document.getElementById('runBtn');
+            const btnText = document.getElementById('btnText');
+            btn.disabled = true;
+            btnText.textContent = 'Analyzing...';
+
+            try {
+                const response = await fetch('/experiment1/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    const err = document.getElementById('errorDisplay');
+                    err.style.display = 'block';
+                    err.innerHTML = '<strong>Error:</strong> ' + data.error;
+                    document.getElementById('resultsSection').classList.remove('active');
+                    return;
+                }
+                document.getElementById('errorDisplay').style.display = 'none';
+                document.getElementById('resultsSection').classList.add('active');
+
+                // Metrics
+                const tg = data.correlations.tau_gradient;
+                const tl = data.correlations.tau_loo;
+                const tgEl = document.getElementById('tauGrad');
+                const tlEl = document.getElementById('tauLoo');
+                tgEl.textContent = tg.toFixed(3);
+                tlEl.textContent = tl.toFixed(3);
+                tgEl.className = 'metric-value ' + colorTau(tg);
+                tlEl.className = 'metric-value ' + colorTau(tl);
+
+                const pred = data.prediction;
+                document.getElementById('prediction').textContent =
+                    (pred * 100).toFixed(1) + '% ' + (pred > 0.5 ? 'Pos' : 'Neg');
+                document.getElementById('numTokens').textContent = data.num_tokens;
+
+                // Key finding
+                const avgTau = (Math.abs(tg) + Math.abs(tl)) / 2;
+                const finding = document.getElementById('keyFinding');
+                if (avgTau < 0.4) {
+                    finding.innerHTML = `Attention shows <strong>WEAK correlation</strong> (τ_g=${tg.toFixed(2)}, τ_loo=${tl.toFixed(2)}) with feature importance — confirming that attention is NOT a reliable explanation.`;
+                } else {
+                    finding.innerHTML = `Attention shows <strong>moderate correlation</strong> (τ_g=${tg.toFixed(2)}, τ_loo=${tl.toFixed(2)}) with feature importance on this text.`;
+                }
+
+                // Top words
+                const sorted = data.per_token_data.slice();
+                const byAttn = sorted.slice().sort((a, b) => b.attention - a.attention).slice(0, 5);
+                const byGrad = sorted.slice().sort((a, b) => b.gradient_importance - a.gradient_importance).slice(0, 5);
+                const byLoo = sorted.slice().sort((a, b) => b.loo_importance - a.loo_importance).slice(0, 5);
+
+                document.getElementById('topAttention').innerHTML = byAttn.map(d => `<li><strong>${d.token}</strong> (${d.attention.toFixed(4)})</li>`).join('');
+                document.getElementById('topGradient').innerHTML = byGrad.map(d => `<li><strong>${d.token}</strong> (${d.gradient_importance.toFixed(4)})</li>`).join('');
+                document.getElementById('topLoo').innerHTML = byLoo.map(d => `<li><strong>${d.token}</strong> (${d.loo_importance.toFixed(4)})</li>`).join('');
+
+                // Token table
+                const maxAttn = Math.max(...data.per_token_data.map(d => d.attention));
+                const maxGrad = Math.max(...data.per_token_data.map(d => d.gradient_importance));
+                const maxLoo = Math.max(...data.per_token_data.map(d => d.loo_importance));
+
+                const tbody = document.getElementById('tokenTableBody');
+                tbody.innerHTML = data.per_token_data.map(d => {
+                    const aw = maxAttn > 0 ? (d.attention / maxAttn * 100) : 0;
+                    const gw = maxGrad > 0 ? (d.gradient_importance / maxGrad * 100) : 0;
+                    const lw = maxLoo > 0 ? (d.loo_importance / maxLoo * 100) : 0;
+                    return `<tr>
+                        <td><strong>${d.token}</strong></td>
+                        <td>${d.attention.toFixed(4)}</td>
+                        <td>${d.gradient_importance.toFixed(4)}</td>
+                        <td>${d.loo_importance.toFixed(4)}</td>
+                        <td>
+                            <span class="bar bar-attn" style="width:${aw}px" title="Attention"></span>
+                            <span class="bar bar-grad" style="width:${gw}px" title="Gradient"></span>
+                            <span class="bar bar-loo"  style="width:${lw}px" title="LOO"></span>
+                        </td>
+                    </tr>`;
+                }).join('');
+
+            } catch (e) {
+                const err = document.getElementById('errorDisplay');
+                err.style.display = 'block';
+                err.innerHTML = '<strong>Error:</strong> ' + e.message;
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = 'Run Analysis';
+            }
+        }
+    </script>
+</body>
+
+</html>
