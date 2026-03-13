@@ -202,23 +202,15 @@
         <header class="header">
             <div class="logo">
                 <div class="logo-text">
-                    <h1>Experiment 1: Adversarial Attention</h1>
+                    <h1>Experiment 2: Adversarial Attention</h1>
                     <p class="subtitle">Testing if attention is a faithful explanation</p>
                 </div>
             </div>
         </header>
 
         <main class="main-content">
-            <div class="nav-buttons">
-                <button class="nav-btn primary" onclick="location.href='/'">← Back to Main</button>
-            </div>
 
             <div class="experiment-container">
-                <div class="exp-header">
-                    <h1>Adversarial Attention Attack</h1>
-                    <p>This experiment demonstrates that different attention patterns can produce the same prediction,
-                        proving attention is NOT a faithful explanation.</p>
-                </div>
 
                 <div class="card input-card">
                     <div class="card-header">
@@ -250,11 +242,6 @@
                 </div>
 
                 <div id="resultsSection" class="results-section">
-                    <div class="finding-box">
-                        <h3>Key Finding</h3>
-                        <p id="keyFinding">The model gives the <strong>SAME prediction</strong> even with completely
-                            different attention weights!</p>
-                    </div>
 
                     <div class="metrics-grid">
                         <div class="metric-card">
@@ -275,27 +262,9 @@
                         </div>
                     </div>
 
-                    <div class="comparison-container">
-                        <div class="attention-display">
-                            <h3>Original Attention</h3>
-                            <p class="metric-label">What the model naturally attends to</p>
-                            <div id="originalWords" class="word-cloud"></div>
-                        </div>
-                        <div class="attention-display">
-                            <h3>Adversarial Attention</h3>
-                            <p class="metric-label">Maximally different attention (same prediction)</p>
-                            <div id="adversarialWords" class="word-cloud"></div>
-                        </div>
-                    </div>
-
                     <div class="chart-wrapper">
                         <h3>Attention Comparison Chart</h3>
                         <img id="barChart" src="" alt="Bar chart comparison">
-                    </div>
-
-                    <div class="chart-wrapper">
-                        <h3>Attention Difference Heatmap</h3>
-                        <img id="heatMap" src="" alt="Attention difference heatmap">
                     </div>
                 </div>
             </div>
@@ -355,38 +324,8 @@
                 document.getElementById('attnDiff').textContent = data.difference_metrics.l1_difference.toFixed(3);
                 document.getElementById('cosSim').textContent = data.difference_metrics.cosine_similarity.toFixed(3);
 
-                // Compute max weights for proper font scaling
-                const maxOrigWeight = Math.max(...data.original_attention);
-                const maxAdvWeight = Math.max(...data.adversarial_attention);
-
-                const origWords = document.getElementById('originalWords');
-                origWords.innerHTML = data.tokens.map((token, i) => {
-                    const weight = data.original_attention[i];
-                    const normalized = maxOrigWeight > 0 ? weight / maxOrigWeight : 0;
-                    const size = 12 + normalized * 18;
-                    const opacity = 0.4 + normalized * 0.6;
-                    return `<span class="attention-word original" style="font-size: ${size}px; opacity: ${opacity}" title="Attention: ${weight.toFixed(4)}">${token}</span>`;
-                }).join('');
-
-                const advWords = document.getElementById('adversarialWords');
-                advWords.innerHTML = data.tokens.map((token, i) => {
-                    const weight = data.adversarial_attention[i];
-                    const normalized = maxAdvWeight > 0 ? weight / maxAdvWeight : 0;
-                    const size = 12 + normalized * 18;
-                    const opacity = 0.4 + normalized * 0.6;
-                    return `<span class="attention-word adversarial" style="font-size: ${size}px; opacity: ${opacity}" title="Attention: ${weight.toFixed(4)}">${token}</span>`;
-                }).join('');
-
                 if (data.visualizations) {
                     document.getElementById('barChart').src = 'data:image/png;base64,' + data.visualizations.bar_chart;
-                    document.getElementById('heatMap').src = 'data:image/png;base64,' + data.visualizations.heatmap;
-                }
-
-                const finding = document.getElementById('keyFinding');
-                if (data.prediction_difference < 0.05) {
-                    finding.innerHTML = `The model gives the <strong>SAME prediction</strong> (${(data.original_prediction * 100).toFixed(1)}% vs ${(data.adversarial_prediction * 100).toFixed(1)}%) despite completely different attention weights! This proves attention is NOT a faithful explanation.`;
-                } else {
-                    finding.innerHTML = `Prediction changed from ${(data.original_prediction * 100).toFixed(1)}% to ${(data.adversarial_prediction * 100).toFixed(1)}%.`;
                 }
 
             } catch (error) {
