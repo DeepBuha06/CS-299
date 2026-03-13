@@ -98,7 +98,12 @@ class AdversarialAttentionAttack:
             optimizer.zero_grad()
             
             # Normalize to valid attention distribution
-            normalized_attention = F.softmax(adversarial_logits, dim=0)
+            if lengths is not None:
+                actual_len = lengths[0].item()
+                adversarial_logits[actual_len:] = -1e9
+                normalized_attention = F.softmax(adversarial_logits, dim=0)
+            else:
+                normalized_attention = F.softmax(adversarial_logits, dim=0)
             
             # Maximize attention difference
             difference = torch.abs(normalized_attention - original_attention).sum()
@@ -153,9 +158,13 @@ class AdversarialAttentionAttack:
         best_difference = 0
         best_prediction_diff = float('inf')
         
+        valid_len = lengths[0].item() if lengths is not None else seq_length
+        
         for _ in range(num_samples):
-            random_attention = torch.rand(seq_length)
-            random_attention = random_attention / random_attention.sum()
+            random_attention = torch.zeros(seq_length, device=original_attention.device)
+            if valid_len > 0:
+                rand_vals = torch.rand(valid_len, device=original_attention.device)
+                random_attention[:valid_len] = rand_vals / rand_vals.sum()
             
             difference = torch.abs(random_attention - original_attention).sum().item()
             
@@ -193,20 +202,24 @@ class AdversarialAttentionAttack:
         best_attention = None
         best_difference = 0
         
+        valid_len = lengths[0].item() if lengths is not None else seq_length
+        
         original_indices = torch.argsort(original_attention, descending=True)
         
         for _ in range(num_permutations):
             permuted_attention = original_attention.clone()
             
-            num_swaps = np.random.randint(1, seq_length // 2)
-            for _ in range(num_swaps):
-                i, j = np.random.choice(seq_length, 2, replace=False)
-                i, j = int(i), int(j)
-                permuted_attention[i], permuted_attention[j] = (
-                    permuted_attention[j], permuted_attention[i]
-                )
+            if valid_len > 1:
+                num_swaps = np.random.randint(1, max(2, valid_len // 2 + 1))
+                for _ in range(num_swaps):
+                    i, j = np.random.choice(valid_len, 2, replace=False)
+                    i, j = int(i), int(j)
+                    permuted_attention[i], permuted_attention[j] = (
+                        permuted_attention[j], permuted_attention[i]
+                    )
             
-            permuted_attention = permuted_attention / permuted_attention.sum()
+            if valid_len > 0:
+                permuted_attention[:valid_len] = permuted_attention[:valid_len] / permuted_attention[:valid_len].sum()
             
             difference = torch.abs(permuted_attention - original_attention).sum().item()
             
@@ -239,8 +252,11 @@ class AdversarialAttentionAttack:
             )
         
         seq_length = original_attention.shape[0]
+        valid_len = lengths[0].item() if lengths is not None else seq_length
         
-        uniform_attention = torch.ones(seq_length) / seq_length
+        uniform_attention = torch.zeros(seq_length, device=original_attention.device)
+        if valid_len > 0:
+            uniform_attention[:valid_len] = 1.0 / valid_len
         
         entropy_original = -(original_attention * torch.log(original_attention + 1e-10)).sum()
         entropy_uniform = -(uniform_attention * torch.log(uniform_attention + 1e-10)).sum()
@@ -351,7 +367,7 @@ def run_adversarial_experiment(
     if len(ids) < max_length:
         ids.extend([vocab.get('<PAD>', 0)] * (max_length - len(ids)))
     
-    length = len([t for t in tokens if t in vocab])
+    length = len(tokens)
     
     token_ids = torch.tensor([ids], dtype=torch.long)
     lengths = torch.tensor([length])
