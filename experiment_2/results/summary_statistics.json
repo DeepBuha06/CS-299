@@ -1,0 +1,23 @@
+{
+  "total_samples": 25000,
+  "total_time_seconds": 5300.9441685676575,
+  "avg_l1_difference": 0.9633375673747062,
+  "std_l1_difference": 0.12646902505996319,
+  "avg_cosine_similarity": 0.4825215479874611,
+  "std_cosine_similarity": 0.10065466841753849,
+  "avg_kl_divergence": 0.9849998447787762,
+  "std_kl_divergence": 0.278539460069408,
+  "avg_js_divergence": 0.16816100467175246,
+  "std_js_divergence": 0.03960419914107118,
+  "avg_pearson_correlation": -0.1470988633229656,
+  "std_pearson_correlation": 0.07598153622932763,
+  "avg_prediction_difference": 0.10270179656283522,
+  "std_prediction_difference": 0.07101685691896277,
+  "same_class_rate": 0.94912,
+  "same_class_count": 23728,
+  "method_distribution": {
+    "random": 24987,
+    "permutation": 13
+  },
+  "avg_top5_overlap": 0.05516
+}
