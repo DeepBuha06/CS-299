@@ -19,6 +19,7 @@ from pathlib import Path
 # ── Config ───────────────────────────────────────────────────────────────
 RESULTS_DIR = Path(__file__).parent / "results"
 RESULTS_FILE = RESULTS_DIR / "full_test_results.json"
+KENDALL_TAU_FILE = RESULTS_DIR / "kendall_tau_results.json"
 
 # Use a clean style
 plt.rcParams.update({
@@ -333,6 +334,65 @@ def create_summary_dashboard(results, data):
     print(f"  Saved: {path}")
 
 
+def plot_jsd_histogram(results):
+    """
+    Plot 9: JSD (Jensen-Shannon Divergence) distribution.
+    Replicates the adversarial attention JSD plot from the paper.
+    JSD upper bound is ln(2) ≈ 0.693.
+    """
+    jsd_vals = [r['js_divergence'] for r in results]
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.hist(jsd_vals, bins=50, color='#7c3aed', alpha=0.8, edgecolor='white', linewidth=0.5)
+    ax.axvline(np.mean(jsd_vals), color=COLORS['secondary'], linewidth=2, linestyle='--',
+               label=f'Mean JSD = {np.mean(jsd_vals):.3f}')
+    ax.axvline(np.log(2), color='black', linewidth=2, linestyle=':',
+               label=f'Upper Bound (ln2 ≈ {np.log(2):.3f})')
+    ax.set_xlabel('Jensen-Shannon Divergence (JSD)')
+    ax.set_ylabel('Number of Samples')
+    ax.set_title('Distribution of JSD Between Original and Adversarial Attention\n'
+                 '(Higher JSD = more different attention distributions)')
+    ax.legend(fontsize=11)
+
+    plt.tight_layout()
+    path = RESULTS_DIR / 'plot_jsd_histogram.png'
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    print(f"  Saved: {path}")
+
+
+def plot_kendall_tau_histogram():
+    """
+    Plot 10: Kendall Tau correlation histogram (Attention vs Gradient Importance).
+    Replicates Figure 2 from "Attention is not Explanation" (Jain & Wallace, 2019).
+    """
+    if not KENDALL_TAU_FILE.exists():
+        print(f"  SKIPPED: Kendall Tau plot (run compute_kendall_tau.py first)")
+        return
+
+    with open(KENDALL_TAU_FILE, 'r') as f:
+        kt_data = json.load(f)
+
+    taus = kt_data['kendall_taus']
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.hist(taus, bins=50, color='#0891b2', alpha=0.8, edgecolor='white', linewidth=0.5)
+    ax.axvline(np.mean(taus), color=COLORS['secondary'], linewidth=2, linestyle='--',
+               label=f'Mean τ = {np.mean(taus):.3f}')
+    ax.axvline(0, color='gray', linewidth=1, linestyle='-', alpha=0.5)
+    ax.set_xlabel('Kendall τ (Attention vs Gradient Importance)')
+    ax.set_ylabel('Number of Samples')
+    ax.set_title('Kendall τ Correlation: Attention Weights vs Gradient-Based Importance\n'
+                 '(τ near 0 = attention does NOT correlate with true feature importance)')
+    ax.legend(fontsize=11)
+
+    plt.tight_layout()
+    path = RESULTS_DIR / 'plot_kendall_tau.png'
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    print(f"  Saved: {path}")
+
+
 def main():
     if not RESULTS_FILE.exists():
         print(f"ERROR: Results file not found at {RESULTS_FILE}")
@@ -353,6 +413,8 @@ def main():
     plot_same_class_pie(results)
     plot_prediction_diff_histogram(results)
     plot_top5_overlap_bar(results)
+    plot_jsd_histogram(results)
+    plot_kendall_tau_histogram()
     create_summary_dashboard(results, data)
 
     print(f"\n{'='*70}")
