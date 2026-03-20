@@ -137,8 +137,7 @@ class FeatureImportanceAnalyzer:
         self,
         attention_weights: torch.Tensor,
         gradient_importance: torch.Tensor,
-        loo_importance: torch.Tensor,
-        length: int
+        loo_importance: torch.Tensor
     ) -> Dict:
         """
         Compute Kendall's τ correlations (Algorithm 1, lines 3 and 5).
@@ -146,20 +145,24 @@ class FeatureImportanceAnalyzer:
         τ_g   = Kendall-τ(α, g)    — attention vs gradients
         τ_loo = Kendall-τ(α, Δŷ)   — attention vs LOO
         """
-        # Only use actual (non-padding) tokens
-        attn = attention_weights[:length].detach().cpu().numpy()
-        grad = gradient_importance[:length].detach().cpu().numpy()
-        loo = loo_importance[:length].detach().cpu().numpy()
-        
-        # Kendall's τ correlation
-        tau_g, p_g = kendalltau(attn, grad)
-        tau_loo, p_loo = kendalltau(attn, loo)
-        
-        # Handle NaN and cast to Python native types for JSON serialization
-        tau_g = 0.0 if np.isnan(tau_g) else float(tau_g)
-        tau_loo = 0.0 if np.isnan(tau_loo) else float(tau_loo)
-        p_g = 1.0 if np.isnan(p_g) else float(p_g)
-        p_loo = 1.0 if np.isnan(p_loo) else float(p_loo)
+        attn = attention_weights.detach().cpu().numpy()
+        grad = gradient_importance.detach().cpu().numpy()
+        loo = loo_importance.detach().cpu().numpy()
+
+        def _kendall_tau_safe(x: np.ndarray, y: np.ndarray) -> Tuple[float, float]:
+            # Need >=2 points and non-constant arrays for meaningful tau.
+            if len(x) < 2 or len(y) < 2:
+                return 0.0, 1.0
+            if np.allclose(x, x[0]) or np.allclose(y, y[0]):
+                return 0.0, 1.0
+
+            tau, pval = kendalltau(x, y, variant='b', method='auto')
+            if np.isnan(tau) or np.isnan(pval):
+                return 0.0, 1.0
+            return float(tau), float(pval)
+
+        tau_g, p_g = _kendall_tau_safe(attn, grad)
+        tau_loo, p_loo = _kendall_tau_safe(attn, loo)
         
         return {
             'tau_gradient': tau_g,
@@ -203,31 +206,66 @@ class FeatureImportanceAnalyzer:
         # Step 3: Compute LOO importance
         loo_importance = self.compute_loo_importance(token_ids, lengths, pad_idx)
         
-        # Step 4: Compute correlations
+        # Keep only visible (non-padding) tokens and normalize each weight vector
+        # over this filtered set so the webapp receives ready-to-render values.
+        valid_indices = []
+        for i in range(length):
+            token = tokens[i].strip()
+            if not token:
+                continue
+            if token.lower() in {'<pad>', '[pad]', 'pad'}:
+                continue
+            valid_indices.append(i)
+
+        if valid_indices:
+            idx_tensor = torch.tensor(valid_indices, device=attention_weights.device)
+            filtered_tokens = [tokens[i] for i in valid_indices]
+            filtered_attention = attention_weights.index_select(0, idx_tensor)
+            filtered_gradient = gradient_importance.index_select(0, idx_tensor)
+            filtered_loo = loo_importance.index_select(0, idx_tensor)
+        else:
+            filtered_tokens = []
+            filtered_attention = torch.empty(0, device=attention_weights.device)
+            filtered_gradient = torch.empty(0, device=gradient_importance.device)
+            filtered_loo = torch.empty(0, device=loo_importance.device)
+
+        def _normalize(weights: torch.Tensor) -> torch.Tensor:
+            total = weights.sum()
+            if weights.numel() == 0 or total.item() <= 0:
+                return torch.zeros_like(weights)
+            return weights / total
+
+        normalized_attention = _normalize(filtered_attention)
+        normalized_gradient = _normalize(filtered_gradient)
+        normalized_loo = _normalize(filtered_loo)
+
+        # Step 4: Compute correlations on the same filtered vectors sent to webapp.
         correlations = self.compute_correlations(
-            attention_weights, gradient_importance, loo_importance, length
+            filtered_attention,
+            filtered_gradient,
+            filtered_loo
         )
         
         # Per-token data for visualization
         per_token_data = []
-        for i in range(length):
+        for i in range(len(filtered_tokens)):
             per_token_data.append({
-                'token': tokens[i],
-                'attention': float(attention_weights[i]),
-                'gradient_importance': float(gradient_importance[i]),
-                'loo_importance': float(loo_importance[i])
+                'token': filtered_tokens[i],
+                'attention': float(normalized_attention[i]),
+                'gradient_importance': float(normalized_gradient[i]),
+                'loo_importance': float(normalized_loo[i])
             })
         
         return {
             'text': text,
-            'tokens': tokens[:length],
+            'tokens': filtered_tokens,
             'prediction': float(prediction),
-            'attention': attention_weights[:length].detach().cpu().tolist(),
-            'gradient_importance': gradient_importance[:length].detach().cpu().tolist(),
-            'loo_importance': loo_importance[:length].detach().cpu().tolist(),
+            'attention': normalized_attention.detach().cpu().tolist(),
+            'gradient_importance': normalized_gradient.detach().cpu().tolist(),
+            'loo_importance': normalized_loo.detach().cpu().tolist(),
             'correlations': correlations,
             'per_token_data': per_token_data,
-            'num_tokens': length
+            'num_tokens': len(filtered_tokens)
         }
     
     def _tokenize(self, text: str) -> List[str]:
