@@ -59,3 +59,4 @@ data/raw/imdb/test/**/*.txt
 Thumbs.db
 
 
+experiment_3/results/full_test_results.json
