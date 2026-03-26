@@ -43,9 +43,8 @@ def load_model(device):
 def compute_gradient_and_attention(model, input_ids, attention_mask, device):
     """
     Compute gradient-based importance and attention for a transformer sample.
-    
-    For transformers, gradients flow naturally through the model in eval mode
-    (no cuDNN LSTM issue), so we can stay in eval mode.
+    Uses a hook on the embeddings layer to capture and track gradients,
+    while using the standard model forward pass to avoid layer unpacking issues.
     """
     model.eval()
     model.zero_grad()
@@ -53,25 +52,29 @@ def compute_gradient_and_attention(model, input_ids, attention_mask, device):
     input_ids = input_ids.to(device)
     attention_mask = attention_mask.to(device)
 
-    # Get embeddings and enable gradient tracking
-    embeddings = model.distilbert.embeddings(input_ids)  # (1, seq_len, hidden_dim)
-    embeddings = embeddings.detach().requires_grad_(True)
+    # Hook to capture embeddings and enable gradient tracking
+    captured_embeddings = {}
 
-    # Manual forward through transformer layers
-    # DistilBERT: embeddings -> transformer blocks -> output
-    hidden_state = embeddings
-    extended_mask = attention_mask.unsqueeze(1).unsqueeze(2)  # (1, 1, 1, seq_len)
-    extended_mask = extended_mask.to(dtype=hidden_state.dtype)
-    extended_mask = (1.0 - extended_mask) * -1e9
+    def embed_hook(module, input, output):
+        # Detach and re-attach with requires_grad so we can compute
+        # gradients w.r.t. the embedding output
+        captured_embeddings['value'] = output
+        output.retain_grad()
+        return output
 
-    attentions_all = []
-    for layer in model.distilbert.transformer.layer:
-        layer_out = layer(hidden_state, attn_mask=extended_mask, output_attentions=True)
-        hidden_state = layer_out[0]
-        attentions_all.append(layer_out[-1])  # attention weights
+    handle = model.distilbert.embeddings.register_forward_hook(embed_hook)
 
-    # CLS representation
-    cls_output = hidden_state[:, 0, :]  # (1, hidden_dim)
+    # Standard forward pass — no manual layer iteration
+    outputs = model.distilbert(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        output_attentions=True
+    )
+
+    handle.remove()
+
+    # CLS classification
+    cls_output = outputs.last_hidden_state[:, 0, :]
     logits = model.classifier(model.dropout(cls_output))
     probs = torch.softmax(logits, dim=-1)
     pred_class = torch.argmax(probs, dim=-1).item()
@@ -80,20 +83,22 @@ def compute_gradient_and_attention(model, input_ids, attention_mask, device):
     # Backward
     pred_prob.backward()
 
-    # Gradient importance
-    grad = embeddings.grad[0]  # (seq_len, hidden_dim)
+    # Gradient importance from captured embeddings
+    emb = captured_embeddings['value']
+    if emb.grad is None:
+        raise RuntimeError("No gradient on embeddings")
+    grad = emb.grad[0]  # (seq_len, hidden_dim)
     valid_len = int(attention_mask[0].sum().item())
-    gradient_importance = torch.norm(grad[:valid_len], dim=1)  # (valid_len,)
+    gradient_importance = torch.norm(grad[:valid_len], dim=1)
     grad_sum = gradient_importance.sum()
     if grad_sum > 0:
         gradient_importance = gradient_importance / grad_sum
 
     # Last layer attention: CLS -> all tokens, averaged across heads
-    last_attn = attentions_all[-1]  # (1, num_heads, seq_len, seq_len)
+    last_attn = outputs.attentions[-1]  # (1, num_heads, seq_len, seq_len)
     avg_attn = last_attn.mean(dim=1)  # (1, seq_len, seq_len)
-    cls_attention = avg_attn[0, 0, :valid_len]  # (valid_len,)
+    cls_attention = avg_attn[0, 0, :valid_len]
 
-    # Normalize attention to sum to 1 over valid tokens
     attn_sum = cls_attention.sum()
     if attn_sum > 0:
         cls_attention = cls_attention / attn_sum
