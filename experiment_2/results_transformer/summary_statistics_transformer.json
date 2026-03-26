@@ -1,0 +1,14 @@
+{
+  "total_samples": 25000,
+  "total_time_seconds": 7258.658239603043,
+  "avg_l1_difference": 1.1582069723033905,
+  "std_l1_difference": 0.08606313066722207,
+  "avg_cosine_similarity": 0.41207576807647944,
+  "avg_js_divergence": 0.24105585838720203,
+  "same_class_rate": 0.95332,
+  "same_class_count": 23833,
+  "method_distribution": {
+    "random": 24993,
+    "permutation": 7
+  }
+}

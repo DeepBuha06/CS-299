@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extra: Advanced Transformer Interpretability</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 10px 22px;
+            border: 2px solid #2563eb;
+            border-radius: 8px;
+            background: transparent;
+            color: #2563eb;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .tab-btn.active,
+        .tab-btn:hover {
+            background: #2563eb;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .result-box {
+            background: #f0f4f8;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 16px 0;
+            border-left: 4px solid #2563eb;
+        }
+
+        .result-box h4 {
+            margin: 0 0 10px 0;
+            color: #1e3a5f;
+        }
+
+        .chart-box {
+            background: white;
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            margin: 16px 0;
+        }
+
+        .chart-box h4 {
+            text-align: center;
+            margin: 0 0 8px 0;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            margin: 20px;
+            font-size: 16px;
+            color: #2563eb;
+        }
+
+        .loading-spinner.active {
+            display: block;
+        }
+
+        .method-tag {
+            display: inline-block;
+            background: #1e293b;
+            color: #fbbf24;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .token-heatmap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin: 12px 0;
+            line-height: 2;
+        }
+
+        .token-heatmap span {
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: monospace;
+            cursor: default;
+        }
+
+        .prediction-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 15px;
+            margin: 4px 0;
+        }
+
+        .prediction-badge.pos {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .prediction-badge.neg {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .formula-box {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 13px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin: 12px 0;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+        }
+
+        .stat-card .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            margin: 6px 0;
+        }
+
+        .stat-card .stat-label {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .rank-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 13px;
+        }
+
+        .rank-table th {
+            background: #1e293b;
+            color: white;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .rank-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .rank-up {
+            color: #16a34a;
+            font-weight: 700;
+        }
+
+        .rank-down {
+            color: #dc2626;
+            font-weight: 700;
+        }
+
+        .rank-same {
+            color: #64748b;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-text">
+                    <h1>Advanced Transformer Interpretability</h1>
+                    <p class="subtitle">
+                        <a href="/" style="color:#ffd700;">Home</a> |
+                        <a href="/experiment1" style="color:#ffd700;">Exp 1</a> |
+                        <a href="/experiment2" style="color:#ffd700;">Exp 2</a> |
+                        <a href="/extra" style="color:#ffd700;">Extra Tasks</a>
+                    </p>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('rollout', this)">Attention Rollout</button>
+                <button class="tab-btn" onclick="switchTab('lrp', this)">Relevance Propagation</button>
+            </div>
+
+            <section class="input-section">
+                <div class="card glass-card">
+                    <div class="card-body">
+                        <div class="textarea-wrapper">
+                            <textarea id="extraInput" placeholder="Enter a movie review..."
+                                rows="4">The plot was confusing and the acting felt forced, but the cinematography was absolutely stunning and the soundtrack was hauntingly beautiful.</textarea>
+                        </div>
+                        <button class="analyze-btn" onclick="runAnalysis()">
+                            <span class="btn-text">Analyze</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <div id="loadingSpinner" class="loading-spinner">Computing relevance map...</div>
+
+            <!-- TAB 1: ROLLOUT -->
+            <div id="tab-rollout" class="tab-content active">
+                <div id="rollout-results" style="display:none;">
+                    <div class="result-box">
+                        <span class="method-tag">Abnar & Zuidema, 2020</span>
+                        <h4>Attention Rollout — True Information Flow Through All 6 Layers</h4>
+                        <p>
+                            <span class="prediction-badge" id="r-pred-badge">—</span>
+                            &nbsp; Confidence: <strong id="r-conf">—</strong>
+                        </p>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="stats-grid" id="r-stats"></div>
+
+                    <!-- Heatmaps side by side -->
+                    <div class="result-box">
+                        <h4>Raw Attention (Last Layer Only)</h4>
+                        <div id="r-heatmap-raw" class="token-heatmap"></div>
+                    </div>
+                    <div class="result-box" style="border-left-color:#2563eb;">
+                        <h4>Rollout Relevance (All 6 Layers Combined)</h4>
+                        <div id="r-heatmap-roll" class="token-heatmap"></div>
+                    </div>
+
+                    <!-- Overlaid chart -->
+                    <div class="chart-box">
+                        <h4>Raw Attention vs Rollout — Overlaid Comparison</h4>
+                        <canvas id="rolloutOverlayChart"></canvas>
+                    </div>
+
+                    <!-- Rank changes table -->
+                    <div class="result-box">
+                        <h4>Token Rank Changes (Raw → Rollout)</h4>
+                        <p style="color:#64748b; font-size:13px; margin-bottom:8px;">Positive = rollout ranks this token
+                            HIGHER (more important). Negative = rollout ranks it LOWER.</p>
+                        <table class="rank-table" id="r-rank-table">
+                            <thead>
+                                <tr>
+                                    <th>Token</th>
+                                    <th>Raw Rank</th>
+                                    <th>Rollout Rank</th>
+                                    <th>Change</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div class="result-box">
+                        <h4>Why Rollout ≠ Raw Attention</h4>
+                        <p>Raw attention only shows the <strong>last layer's</strong> weights. Rollout multiplies
+                            attention across <strong>all 6 DistilBERT layers</strong> and adds identity matrices to
+                            account for residual skip connections. Tokens that receive attention in <em>early
+                                layers</em> but not the last layer will be invisible in raw attention but visible in
+                            rollout.</p>
+                        <div class="formula-box">Ã(l) = normalize(A(l) + I) × Ã(l-1)&nbsp;&nbsp;&nbsp; [CLS relevance =
+                            row 0 of Ã(L-1)]</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: LRP -->
+            <div id="tab-lrp" class="tab-content">
+                <div id="lrp-results" style="display:none;">
+                    <div class="result-box">
+                        <span class="method-tag">Chefer et al., 2021</span>
+                        <h4>Gradient-Weighted Relevance Propagation — Class-Discriminative</h4>
+                        <p>
+                            <span class="prediction-badge" id="l-pred-badge">—</span>
+                            &nbsp; Confidence: <strong id="l-conf">—</strong>
+                        </p>
+                    </div>
+
+                    <div class="stats-grid" id="l-stats"></div>
+
+                    <div class="result-box">
+                        <h4>Raw Attention (Last Layer Only)</h4>
+                        <div id="l-heatmap-raw" class="token-heatmap"></div>
+                    </div>
+                    <div class="result-box" style="border-left-color:#dc2626;">
+                        <h4>LRP Relevance (Class-Specific, Gradient-Weighted)</h4>
+                        <div id="l-heatmap-lrp" class="token-heatmap"></div>
+                    </div>
+
+                    <div class="chart-box">
+                        <h4>Raw Attention vs LRP Relevance — Overlaid Comparison</h4>
+                        <canvas id="lrpOverlayChart"></canvas>
+                    </div>
+
+                    <div class="result-box">
+                        <h4>Token Rank Changes (Raw → LRP)</h4>
+                        <p style="color:#64748b; font-size:13px; margin-bottom:8px;">Positive = LRP ranks this token
+                            HIGHER. LRP uses gradients to find class-discriminative tokens that raw attention misses.
+                        </p>
+                        <table class="rank-table" id="l-rank-table">
+                            <thead>
+                                <tr>
+                                    <th>Token</th>
+                                    <th>Raw Rank</th>
+                                    <th>LRP Rank</th>
+                                    <th>Change</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div class="result-box">
+                        <h4>Why LRP > Raw Attention</h4>
+                        <p>LRP uses <strong>gradients</strong> to weight attention, keeping only <strong>positive
+                                relevance flow</strong> (via ReLU). Unlike raw attention, LRP is
+                            <strong>class-discriminative</strong> — it shows which tokens push the prediction toward the
+                            <em>specific class</em>, filtering out tokens the model looked at but didn't use for the
+                            decision.
+                        </p>
+                        <div class="formula-box">Ā = mean_heads[ ReLU(∇A ⊙ A) ]&nbsp;&nbsp;&nbsp; R(l-1) = R(l) + Ā ·
+                            R(l)</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        let currentTab = 'rollout';
+        const charts = {};
+
+        function switchTab(tab, btn) {
+            currentTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+        }
+
+        function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+        function makeOverlayChart(canvasId, labels, raw, method, methodLabel, methodColor) {
+            destroyChart(canvasId);
+            const top = Math.min(40, labels.length);
+            charts[canvasId] = new Chart(document.getElementById(canvasId), {
+                type: 'bar',
+                data: {
+                    labels: labels.slice(0, top).map(t => t.replace('##', '')),
+                    datasets: [
+                        {
+                            label: 'Raw Attention (Last Layer)',
+                            data: raw.slice(0, top),
+                            backgroundColor: 'rgba(100, 116, 139, 0.4)',
+                            borderColor: '#64748b',
+                            borderWidth: 1,
+                        },
+                        {
+                            label: methodLabel,
+                            data: method.slice(0, top),
+                            backgroundColor: methodColor + '55',
+                            borderColor: methodColor,
+                            borderWidth: 2,
+                        }
+                    ]
+                },
+                options: {
+                    plugins: { legend: { display: true, position: 'top' } },
+                    scales: { x: { ticks: { maxRotation: 60, font: { size: 10 } } } }
+                }
+            });
+        }
+
+        function makeHeatmap(containerId, tokens, scores, color) {
+            const el = document.getElementById(containerId);
+            el.innerHTML = '';
+            const maxS = Math.max(...scores);
+            tokens.forEach((tok, i) => {
+                const span = document.createElement('span');
+                span.textContent = tok.replace('##', '');
+                const intensity = maxS > 0 ? scores[i] / maxS : 0;
+                if (color === 'blue') {
+                    span.style.backgroundColor = `rgba(37, 99, 235, ${0.08 + intensity * 0.82})`;
+                } else if (color === 'red') {
+                    span.style.backgroundColor = `rgba(220, 38, 38, ${0.08 + intensity * 0.82})`;
+                } else {
+                    span.style.backgroundColor = `rgba(100, 116, 139, ${0.08 + intensity * 0.72})`;
+                }
+                span.style.color = intensity > 0.5 ? 'white' : '#1e293b';
+                span.style.fontWeight = intensity > 0.3 ? '700' : '400';
+                span.title = `${tok}: ${scores[i].toFixed(4)}`;
+                el.appendChild(span);
+            });
+        }
+
+        function renderStats(containerId, stats) {
+            const el = document.getElementById(containerId);
+            const tau = stats.kendall_tau;
+            const tauColor = Math.abs(tau) < 0.5 ? '#dc2626' : tau > 0.8 ? '#16a34a' : '#f59e0b';
+            const top5overlap = new Set(stats.top5_raw_idx).intersection ?
+                [...new Set(stats.top5_raw_idx)].filter(x => stats.top5_rollout_idx.includes(x)).length :
+                stats.top5_raw_idx.filter(x => stats.top5_rollout_idx.includes(x)).length;
+
+            el.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">Kendall τ (Rank Agreement)</div>
+                    <div class="stat-value" style="color:${tauColor}">${tau.toFixed(3)}</div>
+                    <div class="stat-label">${Math.abs(tau) < 0.5 ? 'Significant difference!' : tau > 0.8 ? 'Very similar' : 'Moderate difference'}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Top-5 Token Overlap</div>
+                    <div class="stat-value" style="color:${top5overlap <= 2 ? '#dc2626' : '#16a34a'}">${top5overlap}/5</div>
+                    <div class="stat-label">${5 - top5overlap} token(s) differ in top 5</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Tokens Re-ranked</div>
+                    <div class="stat-value" style="color:#7c3aed">${stats.rank_changes.filter(c => c !== 0).length}</div>
+                    <div class="stat-label">out of ${stats.rank_changes.length} tokens</div>
+                </div>
+            `;
+        }
+
+        function renderRankTable(tableId, tokens, stats) {
+            const tbody = document.querySelector('#' + tableId + ' tbody');
+            tbody.innerHTML = '';
+            const n = tokens.length;
+
+            // Sort by absolute rank change (biggest movers first)
+            let indices = Array.from({ length: n }, (_, i) => i);
+            indices.sort((a, b) => Math.abs(stats.rank_changes[b]) - Math.abs(stats.rank_changes[a]));
+
+            // Show top 15 biggest movers
+            indices.slice(0, 15).forEach(i => {
+                const change = stats.rank_changes[i];
+                const rawRank = Math.round(n - 1 - (n - 1) * (change >= 0 ? 1 : 0)); // approximate
+                const cls = change > 0 ? 'rank-up' : change < 0 ? 'rank-down' : 'rank-same';
+                const arrow = change > 0 ? '↑' : change < 0 ? '↓' : '—';
+                // Compute actual ranks from the arrays
+                tbody.innerHTML += `<tr>
+                    <td><strong>${tokens[i].replace('##', '')}</strong></td>
+                    <td>#${i + 1}</td>
+                    <td>#${i + 1 - change}</td>
+                    <td class="${cls}">${arrow} ${Math.abs(change)} ${change > 0 ? '(promoted)' : change < 0 ? '(demoted)' : ''}</td>
+                </tr>`;
+            });
+        }
+
+        async function runAnalysis() {
+            const text = document.getElementById('extraInput').value.trim();
+            if (!text) return alert('Enter text');
+            document.getElementById('loadingSpinner').classList.add('active');
+            try {
+                if (currentTab === 'rollout') await runRollout(text);
+                else await runLRP(text);
+            } catch (e) { alert('Error: ' + e.message); }
+            document.getElementById('loadingSpinner').classList.remove('active');
+        }
+
+        async function runRollout(text) {
+            const res = await fetch('/extra/rollout', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            const d = await res.json();
+            if (d.error) return alert(d.error);
+
+            const badge = document.getElementById('r-pred-badge');
+            badge.textContent = d.prediction;
+            badge.className = 'prediction-badge ' + (d.prediction === 'Positive' ? 'pos' : 'neg');
+            document.getElementById('r-conf').textContent = d.confidence.toFixed(1) + '%';
+
+            makeHeatmap('r-heatmap-raw', d.tokens, d.raw_attention, 'gray');
+            makeHeatmap('r-heatmap-roll', d.tokens, d.rollout_relevance, 'blue');
+            makeOverlayChart('rolloutOverlayChart', d.tokens, d.raw_attention, d.rollout_relevance, 'Rollout (All Layers)', '#2563eb');
+            renderStats('r-stats', d.rank_stats);
+            renderRankTable('r-rank-table', d.tokens, d.rank_stats);
+
+            document.getElementById('rollout-results').style.display = 'block';
+        }
+
+        async function runLRP(text) {
+            const res = await fetch('/extra/lrp', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            const d = await res.json();
+            if (d.error) return alert(d.error);
+
+            const badge = document.getElementById('l-pred-badge');
+            badge.textContent = d.prediction;
+            badge.className = 'prediction-badge ' + (d.prediction === 'Positive' ? 'pos' : 'neg');
+            document.getElementById('l-conf').textContent = d.confidence.toFixed(1) + '%';
+
+            makeHeatmap('l-heatmap-raw', d.tokens, d.raw_attention, 'gray');
+            makeHeatmap('l-heatmap-lrp', d.tokens, d.lrp_relevance, 'red');
+            makeOverlayChart('lrpOverlayChart', d.tokens, d.raw_attention, d.lrp_relevance, 'LRP Relevance (Class-Specific)', '#dc2626');
+            renderStats('l-stats', d.rank_stats);
+            renderRankTable('l-rank-table', d.tokens, d.rank_stats);
+
+            document.getElementById('lrp-results').style.display = 'block';
+        }
+    </script>
+</body>
+
+</html>
