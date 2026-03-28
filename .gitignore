@@ -58,5 +58,12 @@ data/raw/imdb/test/**/*.txt
 # OS
 Thumbs.db
 
+# READMEs (generated)
+extra/README.md
 
+# Large result files
+experiment_2/results/full_test_results.json
+experiment_2/results/full_test_results_checkpoint.json
+experiment_2/results_transformer/full_test_results_transformer.json
+experiment_2/results_transformer/transformer_results_checkpoint.json
 experiment_3/results/full_test_results.json

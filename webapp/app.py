@@ -21,12 +21,14 @@ from models_transformer.model import TransformerClassifier
 from models_transformer.dataset import get_tokenizer
 from webapp.experiment_routes import experiment2_bp
 from webapp.experiment1_routes import experiment1_bp
+from webapp.extra_routes import extra_bp
 
 app = Flask(__name__)
 
 # Register blueprints
 app.register_blueprint(experiment2_bp)
 app.register_blueprint(experiment1_bp)
+app.register_blueprint(extra_bp)
 
 # Global model and vocab
 bilstm_model = None
@@ -282,6 +284,12 @@ def experiment2():
 def experiment1():
     """Render the experiment 1 page."""
     return render_template('experiment1.html')
+
+
+@app.route('/extra')
+def extra():
+    """Render the extra experiments page."""
+    return render_template('extra.html')
 
 
 @app.route('/predict', methods=['POST'])
