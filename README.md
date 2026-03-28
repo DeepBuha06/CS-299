@@ -23,7 +23,7 @@ This project implements experiments to test the claim that attention mechanisms,
 - Web interface for attention visualization
 - Baseline performance established on sentiment classification
 
-### 🔬 In Progress (Phase 2: Experiments from Paper)
+### ✅ Phase 2: Experiments from Paper
 The following experiments from the paper are yet to be implemented:
 
 1. **Attention vs Gradient Correlation** - Test if attention correlates with gradient-based feature importance
