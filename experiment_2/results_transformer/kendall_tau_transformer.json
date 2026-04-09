@@ -25002,7 +25002,7 @@
     0.3819978385054809
   ],
   "total_samples": 25000,
-  "total_time_seconds": 1157.2444744110107,
+  "total_time_seconds": 701.3781864643097,
   "avg_kendall_tau": 0.395068661555505,
   "std_kendall_tau": 0.07109174495480669,
   "median_kendall_tau": 0.40018382352941184

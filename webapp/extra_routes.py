@@ -17,6 +17,7 @@ from models_transformer.model import TransformerClassifier
 from models_transformer.dataset import get_tokenizer
 from extra.attention_rollout.rollout import get_cls_rollout
 from extra.relevance_propagation.lrp import compute_relevance_map
+from extra.integrated_gradients.ig import compute_integrated_gradients
 
 extra_bp = Blueprint('extra', __name__, url_prefix='/extra')
 
@@ -60,9 +61,15 @@ def _tokenize_text(text):
     return encoding['input_ids'], encoding['attention_mask']
 
 
+import string
+
 def _filter_special(tokens, *arrs):
-    """Remove special tokens and re-normalize score arrays."""
-    idx = [i for i, t in enumerate(tokens) if t not in SPECIAL_TOKENS]
+    """Remove special tokens and structural punctuation, re-normalize score arrays."""
+    # BERT uses special tokens and punctuation (like '.') as structural hubs/aggregators.
+    # We filter them out so the visualizations highlight semantic content words.
+    PUNCT = set(string.punctuation)
+    
+    idx = [i for i, t in enumerate(tokens) if t not in SPECIAL_TOKENS and t not in PUNCT]
     toks = [tokens[i] for i in idx]
     out = []
     for arr in arrs:
@@ -197,4 +204,43 @@ def lrp_analysis():
         'raw_attention': raw_clean,
         'lrp_relevance': lrp_clean,
         'rank_stats': stats,
+    })
+
+# ============ TASK 3: INTEGRATED GRADIENTS (INPUT ATTRIBUTION) ============
+
+@extra_bp.route('/ig', methods=['POST'])
+def ig_analysis():
+    if not _init():
+        return jsonify({'error': 'Model not loaded'}), 500
+    data = request.get_json()
+    text = data.get('text', '')
+    if not text.strip():
+        return jsonify({'error': 'No text provided'}), 400
+
+    input_ids, attention_mask = _tokenize_text(text)
+    valid_len = int(attention_mask[0].sum().item())
+
+    with torch.no_grad():
+        logits, _ = _model(input_ids, attention_mask)
+        probs = torch.softmax(logits, dim=-1)
+        pred_class = torch.argmax(probs, dim=-1).item()
+
+    target = data.get('target_class', pred_class)
+    
+    # Compute Integrated Gradients
+    attribution, _ = compute_integrated_gradients(_model, input_ids, attention_mask, target_class=target, steps=50)
+    attribution = attribution[:valid_len]
+
+    tokens = _tokenizer.convert_ids_to_tokens(input_ids[0])[:valid_len]
+    
+    # We use _filter_special to remove structural punctuation/special tokens for final clean visualization
+    # We pass attribution twice just to satisfy the *arrs unpacker structure
+    tokens_clean, ig_clean, _ = _filter_special(tokens, attribution.tolist(), attribution.tolist())
+
+    return jsonify({
+        'prediction': 'Positive' if pred_class == 1 else 'Negative',
+        'confidence': float(probs[0, pred_class].item()) * 100,
+        'target_class': target,
+        'tokens': tokens_clean,
+        'ig_attribution': ig_clean
     })

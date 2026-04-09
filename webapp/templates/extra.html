@@ -216,6 +216,7 @@
             <div class="tabs">
                 <button class="tab-btn active" onclick="switchTab('rollout', this)">Attention Rollout</button>
                 <button class="tab-btn" onclick="switchTab('lrp', this)">Relevance Propagation</button>
+                <button class="tab-btn" onclick="switchTab('ig', this)">Integrated Gradients (Inputs)</button>
             </div>
 
             <section class="input-section">
@@ -355,6 +356,41 @@
                     </div>
                 </div>
             </div>
+
+            <!-- TAB 3: IG -->
+            <div id="tab-ig" class="tab-content">
+                <div id="ig-results" style="display:none;">
+                    <div class="result-box">
+                        <span class="method-tag">Sundararajan et al., 2017</span>
+                        <h4>Integrated Gradients — Pure Input Attribution, Zero Attention Sponge</h4>
+                        <p>
+                            <span class="prediction-badge" id="ig-pred-badge">—</span>
+                            &nbsp; Confidence: <strong id="ig-conf">—</strong>
+                        </p>
+                    </div>
+
+                    <div class="result-box" style="border-left-color:#16a34a;">
+                        <h4>Integrated Gradients Relevance (Immune to Punctuation/Sponge Tokens)</h4>
+                        <div id="ig-heatmap" class="token-heatmap"></div>
+                    </div>
+
+                    <div class="chart-box">
+                        <h4>Semantic Input Attribution Map</h4>
+                        <canvas id="igChart"></canvas>
+                    </div>
+
+                    <div class="result-box">
+                        <h4>Why IG Solves the "Sponge" Effect</h4>
+                        <p>While Rollout and LRP trace the internal <strong>attention mechanism</strong> (which gets
+                            messy because Transformers use periods and structural tokens as arbitrary memory bufers), IG
+                            bypasses attention entirely. It measures the physical gradient of the <strong>Input Word
+                                Embeddings</strong> as they fade from 0% to 100%. If destroying the input pixel changes
+                            the score, it highlights it. This perfectly isolates semantic meaning and naturally zeroes
+                            out structural punctuation.</p>
+                        <div class="formula-box">IG_i(x) = (x_i - x_i') * ∫ ∇ F(x' + α(x - x')) dα</div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -484,7 +520,8 @@
             document.getElementById('loadingSpinner').classList.add('active');
             try {
                 if (currentTab === 'rollout') await runRollout(text);
-                else await runLRP(text);
+                else if (currentTab === 'lrp') await runLRP(text);
+                else if (currentTab === 'ig') await runIG(text);
             } catch (e) { alert('Error: ' + e.message); }
             document.getElementById('loadingSpinner').classList.remove('active');
         }
@@ -531,6 +568,43 @@
             renderRankTable('l-rank-table', d.tokens, d.rank_stats);
 
             document.getElementById('lrp-results').style.display = 'block';
+        }
+
+        async function runIG(text) {
+            const res = await fetch('/extra/ig', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            const d = await res.json();
+            if (d.error) return alert(d.error);
+
+            const badge = document.getElementById('ig-pred-badge');
+            badge.textContent = d.prediction;
+            badge.className = 'prediction-badge ' + (d.prediction === 'Positive' ? 'pos' : 'neg');
+            document.getElementById('ig-conf').textContent = d.confidence.toFixed(1) + '%';
+
+            makeHeatmap('ig-heatmap', d.tokens, d.ig_attribution, 'green');
+
+            destroyChart('igChart');
+            charts['igChart'] = new Chart(document.getElementById('igChart'), {
+                type: 'bar',
+                data: {
+                    labels: d.tokens.map(t => t.replace('##', '')),
+                    datasets: [{
+                        label: 'Integrated Gradients (Pure Semantic Attribution)',
+                        data: d.ig_attribution,
+                        backgroundColor: 'rgba(22, 163, 74, 0.4)',
+                        borderColor: '#16a34a',
+                        borderWidth: 2,
+                    }]
+                },
+                options: {
+                    plugins: { legend: { display: true, position: 'top' } },
+                    scales: { x: { ticks: { maxRotation: 60, font: { size: 10 } } } }
+                }
+            });
+
+            document.getElementById('ig-results').style.display = 'block';
         }
     </script>
 </body>
