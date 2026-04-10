@@ -1,0 +1,10 @@
+{
+  "total": 100,
+  "flips": 18,
+  "same_prediction": 82,
+  "flip_rate": 0.18,
+  "preservation_rate": 0.82,
+  "mean_prob_shift": 0.16917152130044996,
+  "mean_kendall_tau": 0.14789133092626758,
+  "per_sample_count": 100
+}

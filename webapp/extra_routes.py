@@ -16,9 +16,10 @@ from config_transformer import TransformerConfig
 from models_transformer.model import TransformerClassifier
 from models_transformer.dataset import get_tokenizer
 from extra.attention_rollout.rollout import get_cls_rollout
+from extra.integrated_gradients.ig_sentiment_preservation import AttentionReplacer, make_ig_attention_matrix, get_raw_attention_distribution
+import json
 from extra.relevance_propagation.lrp import compute_relevance_map
-from extra.integrated_gradients.ig import compute_integrated_gradients
-
+from extra.integrated_gradients.ig import compute_integrated_gradients, pool_subword_attributions
 extra_bp = Blueprint('extra', __name__, url_prefix='/extra')
 
 _model = None
@@ -208,6 +209,29 @@ def lrp_analysis():
 
 # ============ TASK 3: INTEGRATED GRADIENTS (INPUT ATTRIBUTION) ============
 
+@extra_bp.route('/ig_aggregate', methods=['GET'])
+def ig_aggregate():
+    project_root = Path(__file__).parent.parent
+    result_path = project_root / 'extra' / 'integrated_gradients' / 'ig_preservation_results.json'
+    if result_path.exists():
+        with open(result_path, 'r') as f:
+            return jsonify(json.load(f))
+    return jsonify({'error': 'Results not found.'}), 404
+
+def _ig_filter_special(tokens, attributions):
+    """Filter special tokens and punctuation for IG, normalizing by the absolute sum to preserve signs."""
+    import string
+    PUNCT = set(string.punctuation)
+    idx = [i for i, t in enumerate(tokens) if t not in SPECIAL_TOKENS and t not in PUNCT]
+    toks = [tokens[i] for i in idx]
+    atts = [attributions[i] for i in idx]
+    
+    abs_sum = sum(abs(a) for a in atts)
+    if abs_sum > 0:
+        atts = [a / abs_sum for a in atts]
+        
+    return toks, atts
+
 @extra_bp.route('/ig', methods=['POST'])
 def ig_analysis():
     if not _init():
@@ -227,20 +251,70 @@ def ig_analysis():
 
     target = data.get('target_class', pred_class)
     
-    # Compute Integrated Gradients
-    attribution, _ = compute_integrated_gradients(_model, input_ids, attention_mask, target_class=target, steps=50)
-    attribution = attribution[:valid_len]
-
-    tokens = _tokenizer.convert_ids_to_tokens(input_ids[0])[:valid_len]
+    # Compute Integrated Gradients (full sequence length for the Attention matrix)
+    attribution_full, _ = compute_integrated_gradients(_model, input_ids, attention_mask, target_class=target, steps=50)
     
-    # We use _filter_special to remove structural punctuation/special tokens for final clean visualization
-    # We pass attribution twice just to satisfy the *arrs unpacker structure
-    tokens_clean, ig_clean, _ = _filter_special(tokens, attribution.tolist(), attribution.tolist())
+    seq_len = input_ids.shape[1]
+    attn_mask_np = attention_mask[0].cpu().numpy().astype(np.float32)
+    
+    with torch.no_grad():
+        # Get raw attention for baseline comparison
+        raw_attn = get_raw_attention_distribution(_model, input_ids, attention_mask, valid_len)
+        
+        # Build strict valid IG attention matrix 
+        ig_normalized = make_ig_attention_matrix(attribution_full, seq_len, attn_mask_np)
+
+        ig_valid = ig_normalized[:valid_len].numpy()
+        ig_valid_sum = ig_valid.sum()
+        if ig_valid_sum > 1e-9:
+            ig_valid = ig_valid / ig_valid_sum
+            
+        tau = 0.0
+        if len(ig_valid) > 1:
+            tau, _ = kendalltau(raw_attn, ig_valid)
+            if np.isnan(tau): tau = 0.0
+
+        # Run Faithfulness test replacing attention with IG
+        replacer = AttentionReplacer(_model, ig_normalized)
+        replacer.attach()
+        try:
+            logits_ig, _ = _model(input_ids, attention_mask)
+            probs_ig = torch.softmax(logits_ig, dim=-1)
+            pred_ig = torch.argmax(probs_ig, dim=-1).item()
+            conf_ig = probs_ig[0, pred_ig].item()
+        finally:
+            replacer.remove()
+
+    flipped = pred_class != pred_ig
+    prob_shift = abs(probs[0, pred_class].item() - probs_ig[0, pred_class].item())
+
+    # Subword pooling for UI presentation
+    attribution = attribution_full[:valid_len]
+    tokens = _tokenizer.convert_ids_to_tokens(input_ids[0])[:valid_len]
+    pooled_tokens, pooled_attrs = pool_subword_attributions(tokens, attribution.tolist())
+    _, pooled_raw = pool_subword_attributions(tokens, raw_attn.tolist())
+    _, pooled_ig_dist = pool_subword_attributions(tokens, ig_valid.tolist())
+    
+    # Filter punctuations and normalize accurately by absolute sum
+    tokens_clean, ig_clean = _ig_filter_special(pooled_tokens, pooled_attrs.tolist())
+    
+    # Normalize the distributions for the newly overlaid chart
+    _, raw_dist_clean = _ig_filter_special(pooled_tokens, pooled_raw.tolist())
+    _, ig_dist_clean = _ig_filter_special(pooled_tokens, pooled_ig_dist.tolist())
 
     return jsonify({
         'prediction': 'Positive' if pred_class == 1 else 'Negative',
         'confidence': float(probs[0, pred_class].item()) * 100,
         'target_class': target,
         'tokens': tokens_clean,
-        'ig_attribution': ig_clean
+        'ig_attribution': ig_clean,
+        'raw_distribution': raw_dist_clean,
+        'ig_distribution': ig_dist_clean,
+        'faithfulness': {
+            'pred_ig': 'Positive' if pred_ig == 1 else 'Negative',
+            'conf_ig': float(conf_ig) * 100,
+            'flipped': flipped,
+            'prob_shift': float(prob_shift) * 100,
+            'kendall_tau': float(tau)
+        }
     })

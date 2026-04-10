@@ -359,6 +359,14 @@
 
             <!-- TAB 3: IG -->
             <div id="tab-ig" class="tab-content">
+                <div id="ig-global-stats" class="result-box" style="display:none; border-left-color:#8b5cf6; background:#f5f3ff;">
+                    <h4>🌎 Global Faithfulness Evaluation (IMDB Test Set)</h4>
+                    <p style="font-size:14px; margin-bottom:8px;">We tested if IG captures true decision-making logic across hundreds of samples by <strong>swapping the model's natural attention for Pure IG Attribution</strong>.</p>
+                    <div class="stats-grid" id="ig-global-grid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
                 <div id="ig-results" style="display:none;">
                     <div class="result-box">
                         <span class="method-tag">Sundararajan et al., 2017</span>
@@ -377,6 +385,38 @@
                     <div class="chart-box">
                         <h4>Semantic Input Attribution Map</h4>
                         <canvas id="igChart"></canvas>
+                    </div>
+
+                    <div class="result-box" style="border-left-color:#f59e0b; background:#fffbeb; margin-top:24px;">
+                        <h4>🧪 Interactive Faithfulness Test</h4>
+                        <p style="font-size:14px; margin-bottom:12px;">We just completely deleted the model's natural attention weights and forced it to use the IG distribution above. Let's see if the sentiment was preserved!</p>
+                        
+                        <div class="stats-grid">
+                            <div class="stat-card" id="ig-pres-card">
+                                <div class="stat-label">Result</div>
+                                <div class="stat-value" id="ig-f-status" style="font-size:24px;">—</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Forced-Attention Prediction</div>
+                                <div class="stat-value" id="ig-f-pred" style="font-size:20px;">—</div>
+                                <div class="stat-label" style="margin-top:4px;">Conf: <span id="ig-f-conf"></span>%</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Probability Shift</div>
+                                <div class="stat-value" id="ig-f-shift" style="font-size:24px;">—</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Distribution Match (Kendall-τ)</div>
+                                <div class="stat-value" id="ig-f-tau" style="font-size:24px;">—</div>
+                                <div class="stat-label">(Raw Attention vs IG)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-box">
+                        <h4>Why did it happen? (Raw vs IG Layer Overlay)</h4>
+                        <p style="font-size:13px; text-align:center; margin-bottom:12px; color:#64748b;">If IG aligns well with natural RAW attention (high Kendall-τ), the prediction is usually preserved!</p>
+                        <canvas id="igOverlayChart"></canvas>
                     </div>
 
                     <div class="result-box">
@@ -589,7 +629,7 @@
             charts['igChart'] = new Chart(document.getElementById('igChart'), {
                 type: 'bar',
                 data: {
-                    labels: d.tokens.map(t => t.replace('##', '')),
+                    labels: d.tokens,
                     datasets: [{
                         label: 'Integrated Gradients (Pure Semantic Attribution)',
                         data: d.ig_attribution,
@@ -603,9 +643,69 @@
                     scales: { x: { ticks: { maxRotation: 60, font: { size: 10 } } } }
                 }
             });
+            
+            // Populate Faithfulness Test View
+            const f = d.faithfulness;
+            const statusEl = document.getElementById('ig-f-status');
+            const cardEl = document.getElementById('ig-pres-card');
+            if (f.flipped) {
+                statusEl.textContent = '❌ Flipped';
+                statusEl.style.color = '#dc2626';
+                cardEl.style.borderTop = '4px solid #dc2626';
+            } else {
+                statusEl.textContent = '✅ Preserved';
+                statusEl.style.color = '#16a34a';
+                cardEl.style.borderTop = '4px solid #16a34a';
+            }
+
+            const fpred = document.getElementById('ig-f-pred');
+            fpred.textContent = f.pred_ig;
+            fpred.style.color = f.pred_ig === 'Positive' ? '#16a34a' : '#dc2626';
+            document.getElementById('ig-f-conf').textContent = f.conf_ig.toFixed(1);
+            
+            document.getElementById('ig-f-shift').textContent = f.prob_shift.toFixed(1) + '%';
+            document.getElementById('ig-f-shift').style.color = f.prob_shift > 20 ? '#f59e0b' : '#1e293b';
+            
+            const tau = f.kendall_tau;
+            document.getElementById('ig-f-tau').textContent = tau.toFixed(2);
+            document.getElementById('ig-f-tau').style.color = Math.abs(tau) > 0.6 ? '#16a34a' : Math.abs(tau) > 0.3 ? '#f59e0b' : '#dc2626';
+
+            // Render Overlay Chart
+            makeOverlayChart('igOverlayChart', d.tokens, d.raw_distribution, d.ig_distribution, 'IG Attribution Distribution', '#16a34a');
 
             document.getElementById('ig-results').style.display = 'block';
         }
+
+        // Fetch Global IG Results on load
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const res = await fetch('/extra/ig_aggregate');
+                const d = await res.json();
+                if (!d.error && d.total > 0) {
+                    const grid = document.getElementById('ig-global-grid');
+                    grid.innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-label">Total Validated Samples</div>
+                            <div class="stat-value" style="color:#64748b;">${d.total}</div>
+                            <div class="stat-label">Balanced IMDB Set</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Overall Preservation Rate</div>
+                            <div class="stat-value" style="color:#16a34a;">${(d.preservation_rate * 100).toFixed(1)}%</div>
+                            <div class="stat-label">${d.same_prediction} preserved, ${d.flips} flipped</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Mean Probability Shift</div>
+                            <div class="stat-value" style="color:#f59e0b;">${(d.mean_prob_shift * 100).toFixed(1)}%</div>
+                            <div class="stat-label">Average confidence change</div>
+                        </div>
+                    `;
+                    document.getElementById('ig-global-stats').style.display = 'block';
+                }
+            } catch (e) {
+                console.log("Failed to load aggregate IG results", e);
+            }
+        });
     </script>
 </body>
 
