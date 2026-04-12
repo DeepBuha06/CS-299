@@ -1,7 +1,3 @@
-"""
-Comparison utilities for analyzing original vs adversarial attention.
-"""
-
 import torch
 import numpy as np
 from typing import List, Dict, Tuple
@@ -9,14 +5,13 @@ import json
 
 
 class AttentionComparator:
-    """Compare original and adversarial attention distributions."""
-    
+   
     @staticmethod
     def compute_correlation(
         original: torch.Tensor,
         adversarial: torch.Tensor
     ) -> float:
-        """Compute Pearson correlation between attention distributions."""
+   
         orig_np = original.cpu().numpy() if isinstance(original, torch.Tensor) else np.array(original)
         adv_np = adversarial.cpu().numpy() if isinstance(adversarial, torch.Tensor) else np.array(adversarial)
         
@@ -28,7 +23,7 @@ class AttentionComparator:
         original: torch.Tensor,
         adversarial: torch.Tensor
     ) -> float:
-        """Compute KL divergence from original to adversarial."""
+   
         orig_np = original.cpu().numpy() if isinstance(original, torch.Tensor) else np.array(original)
         adv_np = adversarial.cpu().numpy() if isinstance(adversarial, torch.Tensor) else np.array(adversarial)
         
@@ -43,7 +38,7 @@ class AttentionComparator:
         original: torch.Tensor,
         adversarial: torch.Tensor
     ) -> float:
-        """Compute Jensen-Shannon divergence."""
+   
         orig_np = original.cpu().numpy() if isinstance(original, torch.Tensor) else np.array(original)
         adv_np = adversarial.cpu().numpy() if isinstance(adversarial, torch.Tensor) else np.array(adversarial)
         
@@ -64,7 +59,7 @@ class AttentionComparator:
         attention: List[float],
         top_k: int = 5
     ) -> List[Dict]:
-        """Get top-k words with highest attention."""
+   
         combined = list(zip(tokens, attention))
         combined.sort(key=lambda x: x[1], reverse=True)
         
@@ -79,7 +74,6 @@ class AttentionComparator:
         original: List[float],
         adversarial: List[float]
     ) -> Dict:
-        """Analyze how attention shifts between original and adversarial."""
         
         orig_sorted = sorted(range(len(original)), key=lambda i: original[i], reverse=True)
         adv_sorted = sorted(range(len(adversarial)), key=lambda i: adversarial[i], reverse=True)
@@ -103,8 +97,7 @@ class AttentionComparator:
         adversarial_attention: List[float],
         original_prediction: float,
         adversarial_prediction: float
-    ) -> str:
-        """Generate a comprehensive comparison report."""
+    ) -> Dict:
         
         orig_tensor = torch.tensor(original_attention)
         adv_tensor = torch.tensor(adversarial_attention)
@@ -126,48 +119,7 @@ class AttentionComparator:
             tokens, original_attention, adversarial_attention
         )
         
-        report = f"""
-================================================================================
-                    ADVERSARIAL ATTACK COMPARISON REPORT
-================================================================================
-
-PREDICTIONS:
-  Original Prediction:     {original_prediction:.4f}
-  Adversarial Prediction: {adversarial_prediction:.4f}
-  Prediction Difference:  {abs(original_prediction - adversarial_prediction):.4f}
-
-ATTENTION DIFFERENCE METRICS:
-  L1 Distance:             {metrics['l1_difference']:.4f}
-  L2 Distance:            {metrics['l2_difference']:.4f}
-  Maximum Difference:     {metrics['max_difference']:.4f}
-  Mean Difference:        {metrics['mean_difference']:.4f}
-  Pearson Correlation:    {metrics['pearson_correlation']:.4f}
-  KL Divergence:          {metrics['kl_divergence']:.4f}
-  JS Divergence:          {metrics['js_divergence']:.4f}
-
-TOP 5 WORDS (Original Attention):
-"""
-        
-        for item in top_original:
-            report += f"  {item['rank']}. {item['word']:<15} attention: {item['attention']:.4f}\n"
-        
-        report += "\nTOP 5 WORDS (Adversarial Attention):\n"
-        for item in top_adversarial:
-            report += f"  {item['rank']}. {item['word']:<15} attention: {item['attention']:.4f}\n"
-        
-        report += "\nKEY FINDINGS:\n"
-        
-        if metrics['pearson_correlation'] < 0.5:
-            report += "  - Low correlation indicates significantly different attention patterns\n"
-        else:
-            report += "  - High correlation indicates similar attention patterns\n"
-        
-        if abs(original_prediction - adversarial_prediction) < 0.05:
-            report += "  - SAME predictions despite different attention (proves attention is not explanation!)\n"
-        
-        report += "\n================================================================================\n"
-        
-        return report, {
+        return {
             'metrics': metrics,
             'top_original': top_original,
             'top_adversarial': top_adversarial,
@@ -183,7 +135,6 @@ TOP 5 WORDS (Original Attention):
 def batch_compare_attentions(
     results: List[Dict]
 ) -> Dict:
-    """Compare multiple attention pairs and compute aggregate statistics."""
     
     all_l1 = []
     all_correlations = []
@@ -218,10 +169,9 @@ if __name__ == '__main__':
     original = [0.05, 0.15, 0.08, 0.12, 0.35, 0.10, 0.15]
     adversarial = [0.14, 0.14, 0.14, 0.14, 0.15, 0.14, 0.15]
     
-    report, details = AttentionComparator.generate_comparison_report(
+    details = AttentionComparator.generate_comparison_report(
         tokens, original, adversarial, 0.85, 0.84
     )
     
-    print(report)
-    print("\nMetrics JSON:")
+    print("Metrics JSON:")
     print(json.dumps(details['metrics'], indent=2))

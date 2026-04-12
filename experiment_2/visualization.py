@@ -1,8 +1,3 @@
-"""
-Visualization utilities for adversarial attention experiment.
-Creates graphs and charts to compare original vs adversarial attention.
-"""
-
 import json
 import numpy as np
 import matplotlib
@@ -15,7 +10,6 @@ from io import BytesIO
 
 
 class AdversarialVisualizer:
-    """Create visualizations for adversarial attention experiment."""
     
     def __init__(self, figsize=(12, 8), style='seaborn-v0_8-darkgrid'):
         self.figsize = figsize
@@ -31,7 +25,6 @@ class AdversarialVisualizer:
         adversarial_attention: List[float],
         top_n: int = 15
     ) -> str:
-        """Create side-by-side bar chart comparing original and adversarial attention."""
         
         if len(tokens) > top_n:
             combined = list(zip(tokens, original_attention, adversarial_attention))
@@ -74,7 +67,6 @@ class AdversarialVisualizer:
         original_attention: List[float],
         adversarial_attention: List[float]
     ) -> str:
-        """Create a heatmap showing attention difference."""
         
         fig, ax = plt.subplots(figsize=(10, 6))
         
@@ -108,7 +100,6 @@ class AdversarialVisualizer:
         original_attention: List[float],
         adversarial_attention: List[float]
     ) -> str:
-        """Create scatter plot comparing original vs adversarial attention."""
         
         fig, ax = plt.subplots(figsize=(10, 10))
         
@@ -137,32 +128,13 @@ class AdversarialVisualizer:
         image_base64 = base64.b64encode(buffer.read()).decode('utf-8')
         return image_base64
     
-    def create_metrics_summary(
-        self,
-        metrics: Dict
-    ) -> str:
-        """Create a text-based summary of metrics."""
-        
-        summary = f"""
-╔════════════════════════════════════════════════════════════╗
-║           ADVERSARIAL ATTACK RESULTS SUMMARY               ║
-╠════════════════════════════════════════════════════════════╣
-║  L1 Difference:         {metrics.get('l1_difference', 0):.4f}                        ║
-║  L2 Difference:        {metrics.get('l2_difference', 0):.4f}                        ║
-║  Max Difference:       {metrics.get('max_difference', 0):.4f}                        ║
-║  Mean Difference:      {metrics.get('mean_difference', 0):.4f}                        ║
-║  Cosine Similarity:    {metrics.get('cosine_similarity', 0):.4f}                        ║
-╚════════════════════════════════════════════════════════════╝
-        """
-        return summary.strip()
-    
+
     def create_word_highlight_html(
         self,
         tokens: List[str],
         attention: List[float],
         attention_type: str = 'original'
     ) -> str:
-        """Create HTML with word highlighting based on attention weights."""
         
         max_attention = max(attention) if max(attention) > 0 else 1.0
         
@@ -188,7 +160,6 @@ class AdversarialVisualizer:
         adversarial_attention: List[float],
         metrics: Dict
     ) -> Dict:
-        """Generate all visualizations and return as base64."""
         
         visualizations = {}
         
@@ -204,8 +175,6 @@ class AdversarialVisualizer:
             tokens, original_attention, adversarial_attention
         )
         
-        visualizations['summary'] = self.create_metrics_summary(metrics)
-        
         visualizations['original_words'] = self.create_word_highlight_html(
             tokens, original_attention, 'original'
         )
@@ -218,7 +187,6 @@ class AdversarialVisualizer:
 
 
 def create_sample_visualizations():
-    """Create sample visualizations for demonstration."""
     
     tokens = ['the', 'movie', 'was', 'really', 'great', 'and', 'fantastic']
     original = [0.05, 0.15, 0.08, 0.12, 0.35, 0.10, 0.15]
@@ -241,5 +209,4 @@ def create_sample_visualizations():
 
 if __name__ == '__main__':
     results = create_sample_visualizations()
-    print("Sample visualizations generated successfully!")
-    print(results['summary'])
+

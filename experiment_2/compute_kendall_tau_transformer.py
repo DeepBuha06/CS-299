@@ -1,11 +1,3 @@
-r"""
-Compute Kendall Tau (Attention vs Gradient Importance) for DistilBERT Transformer.
-
-Usage:
-    cd c:\project\CS-299-main
-    python experiment_2/compute_kendall_tau_transformer.py
-"""
-
 import torch
 import torch.nn.functional as F
 import json
@@ -41,22 +33,16 @@ def load_model(device):
 
 
 def compute_gradient_and_attention(model, input_ids, attention_mask, device):
-    """
-    Compute gradient-based importance and attention for a transformer sample.
-    Uses a hook on the embeddings layer to capture and track gradients,
-    while using the standard model forward pass to avoid layer unpacking issues.
-    """
+    
     model.eval()
     model.zero_grad()
 
     input_ids = input_ids.to(device)
     attention_mask = attention_mask.to(device)
 
-    # Hook to capture embeddings and enable gradient tracking
     captured_embeddings = {}
 
     def embed_hook(module, input, output):
-        # Detach and re-attach with requires_grad so we can compute
         # gradients w.r.t. the embedding output
         captured_embeddings['value'] = output
         output.retain_grad()
@@ -64,7 +50,7 @@ def compute_gradient_and_attention(model, input_ids, attention_mask, device):
 
     handle = model.distilbert.embeddings.register_forward_hook(embed_hook)
 
-    # Standard forward pass — no manual layer iteration
+    # forward pass
     outputs = model.distilbert(
         input_ids=input_ids,
         attention_mask=attention_mask,
@@ -73,17 +59,17 @@ def compute_gradient_and_attention(model, input_ids, attention_mask, device):
 
     handle.remove()
 
-    # CLS classification
+    # cls classification
     cls_output = outputs.last_hidden_state[:, 0, :]
     logits = model.classifier(model.dropout(cls_output))
     probs = torch.softmax(logits, dim=-1)
     pred_class = torch.argmax(probs, dim=-1).item()
     pred_prob = probs[0, pred_class]
 
-    # Backward
+    # backward
     pred_prob.backward()
 
-    # Gradient importance from captured embeddings
+    # gradient importance from captured embeddings
     emb = captured_embeddings['value']
     if emb.grad is None:
         raise RuntimeError("No gradient on embeddings")
@@ -94,7 +80,7 @@ def compute_gradient_and_attention(model, input_ids, attention_mask, device):
     if grad_sum > 0:
         gradient_importance = gradient_importance / grad_sum
 
-    # Last layer attention: CLS -> all tokens, averaged across heads
+    # last layer attention
     last_attn = outputs.attentions[-1]  # (1, num_heads, seq_len, seq_len)
     avg_attn = last_attn.mean(dim=1)  # (1, seq_len, seq_len)
     cls_attention = avg_attn[0, 0, :valid_len]
@@ -124,11 +110,6 @@ def main():
         max_length=TransformerConfig.MAX_SEQ_LENGTH,
         split="test"
     )
-    print(f"Test dataset size: {len(test_dataset)} samples")
-
-    print("\n" + "=" * 70)
-    print("TRANSFORMER: KENDALL TAU (Attention vs Gradient Importance)")
-    print("=" * 70)
 
     kendall_taus = []
     start_time = time.time()
@@ -156,13 +137,6 @@ def main():
         if (idx + 1) % 500 == 0:
             torch.cuda.empty_cache() if device.type == 'cuda' else None
 
-        if (idx + 1) % 2000 == 0:
-            elapsed = time.time() - start_time
-            rate = (idx + 1) / elapsed
-            eta = (len(test_dataset) - idx - 1) / rate
-            print(f"\n  [{idx+1}/{len(test_dataset)}] Rate: {rate:.1f}/sec | "
-                  f"ETA: {eta/60:.1f} min | Avg τ: {np.mean(kendall_taus):.4f}")
-
     total_time = time.time() - start_time
 
     output = {
@@ -175,16 +149,6 @@ def main():
     }
     with open(results_dir / "kendall_tau_transformer.json", 'w') as f:
         json.dump(output, f, indent=2)
-
-    print(f"\n{'='*70}")
-    print("TRANSFORMER KENDALL TAU SUMMARY")
-    print(f"{'='*70}")
-    print(f"Samples:     {len(kendall_taus)}")
-    print(f"Time:        {total_time/60:.1f} min")
-    print(f"Avg τ:       {np.mean(kendall_taus):.4f} ± {np.std(kendall_taus):.4f}")
-    print(f"Median τ:    {np.median(kendall_taus):.4f}")
-    print(f"{'='*70}")
-    print("\nDone! Now run: python experiment_2/generate_plots_transformer.py")
 
 
 if __name__ == '__main__':

@@ -1,7 +1,3 @@
-"""
-Run full adversarial attention experiment pipeline.
-"""
-
 import torch
 import json
 import sys
@@ -19,13 +15,12 @@ try:
     from visualization import AdversarialVisualizer
     from comparison import AttentionComparator
 except ImportError:
-    from experiment_1.adversarial_attack import run_adversarial_experiment
-    from experiment_1.visualization import AdversarialVisualizer
-    from experiment_1.comparison import AttentionComparator
+    from experiment_2.adversarial_attack import run_adversarial_experiment
+    from experiment_2.visualization import AdversarialVisualizer
+    from experiment_2.comparison import AttentionComparator
 
 
 class ExperimentRunner:
-    """Run the complete adversarial attention experiment."""
     
     def __init__(self, model_path: str, vocab_path: str, device: str = 'cpu'):
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
@@ -34,12 +29,12 @@ class ExperimentRunner:
         self.visualizer = AdversarialVisualizer()
     
     def _load_vocab(self, vocab_path: str) -> Dict:
-        """Load vocabulary from JSON file."""
+
         with open(vocab_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     
     def _load_model(self, model_path: str) -> AttentionClassifier:
-        """Load trained model from checkpoint."""
+
         model = AttentionClassifier(
             vocab_size=Config.VOCAB_SIZE + 2,
             embedding_dim=Config.EMBEDDING_DIM,
@@ -64,11 +59,10 @@ class ExperimentRunner:
         model.to(self.device)
         model.eval()
         
-        print(f"Model loaded from {model_path}")
         return model
     
     def run_single_text(self, text: str) -> Dict:
-        """Run experiment on a single text."""
+
         result = run_adversarial_experiment(
             model=self.model,
             text=text,
@@ -84,7 +78,7 @@ class ExperimentRunner:
             metrics=result['difference_metrics']
         )
         
-        report, comparison_details = AttentionComparator.generate_comparison_report(
+        comparison_details = AttentionComparator.generate_comparison_report(
             tokens=result['tokens'],
             original_attention=result['original_attention'],
             adversarial_attention=result['adversarial_attention'],
@@ -93,13 +87,12 @@ class ExperimentRunner:
         )
         
         result['visualizations'] = visualizations
-        result['comparison_report'] = report
         result['comparison_details'] = comparison_details
         
         return result
     
     def run_batch(self, texts: List[str]) -> Dict:
-        """Run experiment on multiple texts."""
+
         results = []
         
         for i, text in enumerate(texts):
@@ -115,7 +108,7 @@ class ExperimentRunner:
         }
     
     def _compute_batch_statistics(self, results: List[Dict]) -> Dict:
-        """Compute aggregate statistics across all results."""
+
         from comparison import batch_compare_attentions
         
         batch_results = []
@@ -151,7 +144,7 @@ class ExperimentRunner:
         return stats
     
     def get_sample_texts(self) -> Dict[str, str]:
-        """Get sample texts for testing."""
+
         return {
             'positive_strong': "This movie was absolutely fantastic! The acting was superb and the plot kept me engaged throughout. Highly recommend!",
             'positive_moderate': "I enjoyed watching this film. It had some good moments and the characters were interesting.",
@@ -162,7 +155,6 @@ class ExperimentRunner:
 
 
 def main():
-    """Main entry point for running the experiment."""
     
     project_root = Path(__file__).parent.parent
     

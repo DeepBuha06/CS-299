@@ -103,7 +103,7 @@ def analyze_adversarial():
             metrics=result['difference_metrics']
         )
         
-        report, details = AttentionComparator.generate_comparison_report(
+        details = AttentionComparator.generate_comparison_report(
             tokens=result['tokens'],
             original_attention=result['original_attention'],
             adversarial_attention=result['adversarial_attention'],
@@ -124,8 +124,7 @@ def analyze_adversarial():
             'difference_metrics': result['difference_metrics'],
             'top_original': details['top_original'],
             'top_adversarial': details['top_adversarial'],
-            'visualizations': visualizations,
-            'report': report
+            'visualizations': visualizations
         }
         
         return jsonify(response)

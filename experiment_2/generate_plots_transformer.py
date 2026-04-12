@@ -1,11 +1,3 @@
-r"""
-Generate plots from Transformer adversarial attention experiment results.
-
-Usage:
-    cd c:\project\CS-299-main
-    python experiment_2/generate_plots_transformer.py
-"""
-
 import json
 import numpy as np
 import matplotlib
@@ -31,11 +23,9 @@ C = {
 
 
 def load_results():
-    print(f"Loading results from: {RESULTS_FILE}")
     with open(RESULTS_FILE, 'r') as f:
         data = json.load(f)
     results = data['results']
-    print(f"Loaded {len(results)} sample results.")
     return results, data
 
 
@@ -51,7 +41,6 @@ def plot_l1_histogram(results):
     plt.tight_layout()
     plt.savefig(RESULTS_DIR / 'plot_l1_histogram.png', dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print("  Saved: plot_l1_histogram.png")
 
 
 def plot_jsd_histogram(results):
@@ -67,7 +56,6 @@ def plot_jsd_histogram(results):
     plt.tight_layout()
     plt.savefig(RESULTS_DIR / 'plot_jsd_histogram.png', dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print("  Saved: plot_jsd_histogram.png")
 
 
 def plot_same_class_pie(results):
@@ -86,7 +74,6 @@ def plot_same_class_pie(results):
     plt.tight_layout()
     plt.savefig(RESULTS_DIR / 'plot_same_class_pie.png', dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print("  Saved: plot_same_class_pie.png")
 
 
 def plot_best_method(results):
@@ -109,7 +96,6 @@ def plot_best_method(results):
     plt.tight_layout()
     plt.savefig(RESULTS_DIR / 'plot_best_method.png', dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print("  Saved: plot_best_method.png")
 
 
 def plot_cosine_similarity(results):
@@ -124,12 +110,10 @@ def plot_cosine_similarity(results):
     plt.tight_layout()
     plt.savefig(RESULTS_DIR / 'plot_cosine_similarity.png', dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print("  Saved: plot_cosine_similarity.png")
 
 
 def plot_kendall_tau():
     if not KENDALL_FILE.exists():
-        print("  SKIPPED: Kendall Tau (run compute_kendall_tau_transformer.py first)")
         return
     with open(KENDALL_FILE, 'r') as f:
         data = json.load(f)
@@ -214,12 +198,6 @@ def main():
     plot_cosine_similarity(results)
     plot_kendall_tau()
     plot_summary_dashboard(results, data)
-
-    print(f"\n{'='*70}")
-    print("ALL TRANSFORMER PLOTS GENERATED!")
-    print(f"{'='*70}")
-    for p in sorted(RESULTS_DIR.glob('plot_*.png')):
-        print(f"  - {p.name}")
 
 
 if __name__ == '__main__':

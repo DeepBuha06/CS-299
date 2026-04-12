@@ -1,11 +1,3 @@
-"""
-Experiment 1: Attention vs Feature Importance Correlation (Paper Section 4.1)
-
-Implements Algorithm 1 from "Attention is not Explanation" (Jain & Wallace, 2019).
-Computes gradient-based and leave-one-out feature importance measures,
-then correlates them with attention weights using Kendall's τ.
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,10 +10,6 @@ import re
 
 
 class FeatureImportanceAnalyzer:
-    """
-    Implements Algorithm 1 from the paper.
-    Computes gradient and LOO importance, then correlates with attention.
-    """
     
     def __init__(self, model: nn.Module, device: str = 'cpu'):
         self.model = model
@@ -33,7 +21,7 @@ class FeatureImportanceAnalyzer:
         token_ids: torch.Tensor, 
         lengths: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Get attention weights and prediction from the model."""
+        
         with torch.no_grad():
             predictions, attention_weights = self.model(token_ids, lengths, return_attention=True)
         return attention_weights.squeeze(0), predictions.squeeze()
@@ -43,17 +31,9 @@ class FeatureImportanceAnalyzer:
         token_ids: torch.Tensor,
         lengths: torch.Tensor
     ) -> torch.Tensor:
-        """
-        Compute gradient-based feature importance (Algorithm 1, line 3).
-        
-        For each token t, importance = ||∂ŷ/∂embedding_t||₂
-        
-        We disconnect the gradient from flowing through the attention layer
-        to measure "how important is this input to the output, given fixed attention."
-        """
+
         self.model.eval()
         
-        # We need gradients for this computation
         # Forward through model manually to control gradient flow
         batch_size, seq_len = token_ids.shape
         
@@ -70,15 +50,13 @@ class FeatureImportanceAnalyzer:
         # Forward through encoder
         hidden_states, _ = self.model.encoder(embeddings, lengths)
         
-        # Get attention weights but DETACH them from the graph
-        # Paper: "we disconnect the computation graph at the attention module
-        # so that the gradient does not flow through this layer"
+        # Get attention weights
         context_vector, attention_weights = self.model.attention(hidden_states, mask)
         
-        # Detach attention and recompute context manually
-        detached_attention = attention_weights.detach()  # Stop gradient here
+        # detach attention and recompute context
+        detached_attention = attention_weights.detach()
         
-        # Recompute context with detached attention: c = Σ α_t * h_t
+        # context with detached attention
         context_recomputed = torch.bmm(
             detached_attention.unsqueeze(1),  # (batch, 1, seq_len)
             hidden_states                      # (batch, seq_len, hidden_dim)
@@ -90,8 +68,8 @@ class FeatureImportanceAnalyzer:
         # Backpropagate to get gradients w.r.t. embeddings
         prediction.sum().backward()
         
-        # Gradient importance = L2 norm of gradient per token
-        gradient_importance = embeddings.grad.norm(dim=-1).squeeze(0)  # (seq_len,)
+        # Gradient importance
+        gradient_importance = embeddings.grad.norm(dim=-1).squeeze(0)
         
         return gradient_importance.detach()
     
@@ -101,15 +79,7 @@ class FeatureImportanceAnalyzer:
         lengths: torch.Tensor,
         pad_idx: int = 0
     ) -> torch.Tensor:
-        """
-        Compute Leave-One-Out importance (Algorithm 1, lines 4-5).
         
-        For each token t:
-            Δŷ_t = TVD(ŷ(x₋ₜ), ŷ(x))
-        
-        Where x₋ₜ is input with token t replaced by padding.
-        TVD = Total Variation Distance = |ŷ(x₋ₜ) - ŷ(x)| for binary case.
-        """
         seq_length = int(lengths[0].item())
         
         # Get original prediction
@@ -128,7 +98,7 @@ class FeatureImportanceAnalyzer:
                 masked_pred, _ = self.model(masked_ids, lengths, return_attention=True)
                 masked_pred = masked_pred.squeeze()
             
-            # TVD for binary: |p_masked - p_original|
+            # TVD for binary
             loo_importance[t] = torch.abs(masked_pred - original_pred).item()
         
         return loo_importance
@@ -139,18 +109,13 @@ class FeatureImportanceAnalyzer:
         gradient_importance: torch.Tensor,
         loo_importance: torch.Tensor
     ) -> Dict:
-        """
-        Compute Kendall's τ correlations (Algorithm 1, lines 3 and 5).
         
-        τ_g   = Kendall-τ(α, g)    — attention vs gradients
-        τ_loo = Kendall-τ(α, Δŷ)   — attention vs LOO
-        """
         attn = attention_weights.detach().cpu().numpy()
         grad = gradient_importance.detach().cpu().numpy()
         loo = loo_importance.detach().cpu().numpy()
 
         def _kendall_tau_safe(x: np.ndarray, y: np.ndarray) -> Tuple[float, float]:
-            # Need >=2 points and non-constant arrays for meaningful tau.
+            
             if len(x) < 2 or len(y) < 2:
                 return 0.0, 1.0
             if np.allclose(x, x[0]) or np.allclose(y, y[0]):
@@ -180,14 +145,10 @@ class FeatureImportanceAnalyzer:
         max_length: int = 256,
         pad_idx: int = 0
     ) -> Dict:
-        """
-        Run the full Algorithm 1 analysis on a single text.
-        Returns attention, gradient importance, LOO importance, and correlations.
-        """
-        # Tokenize
+        # tokenize
         tokens = self._tokenize(text)[:max_length]
         
-        # Convert to tensor
+        # convert to tensor
         ids = [vocab.get(token, vocab.get('<UNK>', 1)) for token in tokens]
         length = len(ids)
         
@@ -197,17 +158,16 @@ class FeatureImportanceAnalyzer:
         token_ids = torch.tensor([ids], dtype=torch.long).to(self.device)
         lengths = torch.tensor([length]).to(self.device)
         
-        # Step 1: Get attention weights and prediction
+        # get attention weights and prediction
         attention_weights, prediction = self.get_attention_and_prediction(token_ids, lengths)
         
-        # Step 2: Compute gradient importance
+        # compute gradient importance
         gradient_importance = self.compute_gradient_importance(token_ids, lengths)
         
-        # Step 3: Compute LOO importance
+        # compute LOO importance
         loo_importance = self.compute_loo_importance(token_ids, lengths, pad_idx)
         
-        # Keep only visible (non-padding) tokens and normalize each weight vector
-        # over this filtered set so the webapp receives ready-to-render values.
+        # remove padded token
         valid_indices = []
         for i in range(length):
             token = tokens[i].strip()
@@ -239,14 +199,13 @@ class FeatureImportanceAnalyzer:
         normalized_gradient = _normalize(filtered_gradient)
         normalized_loo = _normalize(filtered_loo)
 
-        # Step 4: Compute correlations on the same filtered vectors sent to webapp.
+        # compute correlations.
         correlations = self.compute_correlations(
             filtered_attention,
             filtered_gradient,
             filtered_loo
         )
         
-        # Per-token data for visualization
         per_token_data = []
         for i in range(len(filtered_tokens)):
             per_token_data.append({
@@ -283,9 +242,7 @@ def run_experiment_1(
     device: str = 'cpu',
     max_length: int = 256
 ) -> Dict:
-    """
-    Run Experiment 1 on multiple texts and aggregate statistics.
-    """
+    
     analyzer = FeatureImportanceAnalyzer(model, device)
     
     results = []

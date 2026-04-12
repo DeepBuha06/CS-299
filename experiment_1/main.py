@@ -1,11 +1,3 @@
-"""
-Experiment 1: Attention vs Feature Importance Correlation
-Paper Section 4.1 — Algorithm 1
-
-Tests whether attention weights correlate with gradient-based and
-leave-one-out measures of feature importance using Kendall's τ.
-"""
-
 import torch
 import json
 import sys
@@ -58,12 +50,7 @@ def load_model():
 def main():
     print("=" * 70)
     print("EXPERIMENT 1: ATTENTION vs FEATURE IMPORTANCE CORRELATION")
-    print("Paper Section 4.1 — Algorithm 1")
     print("=" * 70)
-    print()
-    print("This experiment tests whether attention weights correlate with")
-    print("gradient-based and leave-one-out measures of feature importance.")
-    print("Low correlation → attention is NOT a reliable explanation.")
     print()
     
     model, vocab = load_model()

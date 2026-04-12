@@ -1,13 +1,3 @@
-"""
-Generate presentation-ready visualizations from adversarial attention experiment results.
-
-Reads the saved results from run_full_test.py and produces PNG plots + a text report.
-
-Usage:
-    cd c:\project\CS-299-main
-    python experiment_2/generate_plots.py
-"""
-
 import json
 import numpy as np
 import matplotlib
@@ -16,12 +6,11 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from pathlib import Path
 
-# ── Config ───────────────────────────────────────────────────────────────
+# Config
 RESULTS_DIR = Path(__file__).parent / "results"
 RESULTS_FILE = RESULTS_DIR / "full_test_results.json"
 KENDALL_TAU_FILE = RESULTS_DIR / "kendall_tau_results.json"
 
-# Use a clean style
 plt.rcParams.update({
     'font.size': 12,
     'axes.titlesize': 15,
@@ -47,17 +36,13 @@ COLORS = {
 
 
 def load_results():
-    """Load the experiment results JSON."""
-    print(f"Loading results from: {RESULTS_FILE}")
     with open(RESULTS_FILE, 'r') as f:
         data = json.load(f)
     results = data['results']
-    print(f"Loaded {len(results)} sample results.")
     return results, data
 
 
 def plot_l1_histogram(results):
-    """Plot 1: Distribution of L1 attention differences."""
     l1_diffs = [r['l1_difference'] for r in results]
 
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -73,11 +58,9 @@ def plot_l1_histogram(results):
     path = RESULTS_DIR / 'plot_l1_histogram.png'
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f"  Saved: {path}")
-
+    
 
 def plot_prediction_scatter(results):
-    """Plot 2: Original vs Adversarial Prediction scatter plot."""
     orig_preds = [r['original_prediction'] for r in results]
     adv_preds = [r['adversarial_prediction'] for r in results]
 
@@ -96,11 +79,9 @@ def plot_prediction_scatter(results):
     path = RESULTS_DIR / 'plot_prediction_scatter.png'
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f"  Saved: {path}")
-
+    
 
 def plot_difference_by_class(results):
-    """Plot 3: Box plot of attention differences by true sentiment class."""
     pos_diffs = [r['l1_difference'] for r in results if r['true_label'] == 1]
     neg_diffs = [r['l1_difference'] for r in results if r['true_label'] == 0]
 
@@ -124,7 +105,6 @@ def plot_difference_by_class(results):
     ax.set_ylabel('L1 Attention Difference')
     ax.set_title('Adversarial Attention Difference by Sentiment Class')
 
-    # Add count labels
     ax.text(1, ax.get_ylim()[1] * 0.95, f'n = {len(neg_diffs)}', ha='center', fontsize=11, style='italic')
     ax.text(2, ax.get_ylim()[1] * 0.95, f'n = {len(pos_diffs)}', ha='center', fontsize=11, style='italic')
 
@@ -132,11 +112,9 @@ def plot_difference_by_class(results):
     path = RESULTS_DIR / 'plot_diff_by_class.png'
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f"  Saved: {path}")
-
+    
 
 def plot_best_method_bar(results):
-    """Plot 4: Distribution of which attack method was best."""
     method_counts = {}
     for r in results:
         m = r['best_method']
@@ -149,7 +127,6 @@ def plot_best_method_bar(results):
     fig, ax = plt.subplots(figsize=(8, 5))
     bars = ax.bar(methods, counts, color=colors, alpha=0.85, edgecolor='white', linewidth=1.5)
 
-    # Add count labels on bars
     for bar, count in zip(bars, counts):
         pct = 100 * count / len(results)
         ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + len(results)*0.01,
@@ -163,11 +140,9 @@ def plot_best_method_bar(results):
     path = RESULTS_DIR / 'plot_best_method.png'
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f"  Saved: {path}")
-
+    
 
 def plot_cosine_similarity_histogram(results):
-    """Plot 5: Histogram of cosine similarity between original and adversarial attention."""
     cos_sims = [r['cosine_similarity'] for r in results]
 
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -183,11 +158,9 @@ def plot_cosine_similarity_histogram(results):
     path = RESULTS_DIR / 'plot_cosine_similarity.png'
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f"  Saved: {path}")
-
+    
 
 def plot_same_class_pie(results):
-    """Plot 6: Pie chart showing % of samples where prediction class stayed the same."""
     same = sum(1 for r in results if r['same_class'])
     changed = len(results) - same
 
@@ -214,9 +187,7 @@ def plot_same_class_pie(results):
     plt.close(fig)
     print(f"  Saved: {path}")
 
-
 def plot_prediction_diff_histogram(results):
-    """Plot 7: Histogram of prediction difference (should be near 0)."""
     pred_diffs = [r['prediction_difference'] for r in results]
 
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -232,11 +203,9 @@ def plot_prediction_diff_histogram(results):
     path = RESULTS_DIR / 'plot_prediction_diff.png'
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f"  Saved: {path}")
 
 
 def plot_top5_overlap_bar(results):
-    """Plot 8: Distribution of top-5 word overlap counts."""
     overlaps = [r['top5_overlap'] for r in results]
 
     counts = [overlaps.count(i) for i in range(6)]
@@ -259,11 +228,9 @@ def plot_top5_overlap_bar(results):
     path = RESULTS_DIR / 'plot_top5_overlap.png'
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f"  Saved: {path}")
 
 
 def create_summary_dashboard(results, data):
-    """Create a combined summary figure with key stats."""
     l1_diffs = [r['l1_difference'] for r in results]
     cos_sims = [r['cosine_similarity'] for r in results]
     pred_diffs = [r['prediction_difference'] for r in results]
@@ -273,7 +240,6 @@ def create_summary_dashboard(results, data):
     fig.suptitle('Experiment 2: Adversarial Attention Attack — Summary Dashboard',
                  fontsize=18, fontweight='bold', y=0.98)
 
-    # Top-left: L1 histogram
     ax = axes[0, 0]
     ax.hist(l1_diffs, bins=40, color=COLORS['primary'], alpha=0.8, edgecolor='white')
     ax.axvline(np.mean(l1_diffs), color=COLORS['secondary'], linewidth=2, linestyle='--',
@@ -283,7 +249,6 @@ def create_summary_dashboard(results, data):
     ax.set_title('Attention Difference Distribution')
     ax.legend()
 
-    # Top-right: Prediction scatter
     ax = axes[0, 1]
     orig = [r['original_prediction'] for r in results]
     adv = [r['adversarial_prediction'] for r in results]
@@ -331,15 +296,9 @@ def create_summary_dashboard(results, data):
     path = RESULTS_DIR / 'plot_summary_dashboard.png'
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f"  Saved: {path}")
 
 
 def plot_jsd_histogram(results):
-    """
-    Plot 9: JSD (Jensen-Shannon Divergence) distribution.
-    Replicates the adversarial attention JSD plot from the paper.
-    JSD upper bound is ln(2) ≈ 0.693.
-    """
     jsd_vals = [r['js_divergence'] for r in results]
 
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -358,16 +317,10 @@ def plot_jsd_histogram(results):
     path = RESULTS_DIR / 'plot_jsd_histogram.png'
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f"  Saved: {path}")
 
 
 def plot_kendall_tau_histogram():
-    """
-    Plot 10: Kendall Tau correlation histogram (Attention vs Gradient Importance).
-    Replicates Figure 2 from "Attention is not Explanation" (Jain & Wallace, 2019).
-    """
     if not KENDALL_TAU_FILE.exists():
-        print(f"  SKIPPED: Kendall Tau plot (run compute_kendall_tau.py first)")
         return
 
     with open(KENDALL_TAU_FILE, 'r') as f:
@@ -390,21 +343,14 @@ def plot_kendall_tau_histogram():
     path = RESULTS_DIR / 'plot_kendall_tau.png'
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f"  Saved: {path}")
 
 
 def main():
     if not RESULTS_FILE.exists():
-        print(f"ERROR: Results file not found at {RESULTS_FILE}")
-        print("Run 'python experiment_2/run_full_test.py' first!")
         return
 
     results, data = load_results()
 
-    print(f"\nGenerating visualizations...")
-    print(f"Output directory: {RESULTS_DIR}\n")
-
-    # Generate all plots
     plot_l1_histogram(results)
     plot_prediction_scatter(results)
     plot_difference_by_class(results)
@@ -416,15 +362,6 @@ def main():
     plot_jsd_histogram(results)
     plot_kendall_tau_histogram()
     create_summary_dashboard(results, data)
-
-    print(f"\n{'='*70}")
-    print("ALL PLOTS GENERATED SUCCESSFULLY!")
-    print(f"{'='*70}")
-    print(f"\nAll PNG files are in: {RESULTS_DIR}")
-    print("\nPlots created:")
-    for png_file in sorted(RESULTS_DIR.glob('plot_*.png')):
-        print(f"  - {png_file.name}")
-    print("\nThese are ready to use in your presentation/report!")
 
 
 if __name__ == '__main__':

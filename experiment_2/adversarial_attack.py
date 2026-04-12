@@ -1,8 +1,3 @@
-"""
-Adversarial Attention Attack
-Finds attention distributions that produce the SAME prediction but are DIFFERENT from original attention.
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,9 +8,6 @@ from pathlib import Path
 
 
 class AdversarialAttentionAttack:
-    """
-    Find adversarial attention weights that give same prediction but different attention.
-    """
     
     def __init__(
         self,
@@ -36,7 +28,8 @@ class AdversarialAttentionAttack:
         token_ids: torch.Tensor,
         lengths: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, float]:
-        """Get original attention weights and prediction."""
+        
+        # original attention and prediction
         self.model.eval()
         with torch.no_grad():
             predictions, attention = self.model(
@@ -60,12 +53,7 @@ class AdversarialAttentionAttack:
         original_attention: Optional[torch.Tensor] = None,
         original_prediction: Optional[float] = None
     ) -> Tuple[torch.Tensor, float, Dict]:
-        """
-        Use gradient-based optimization to find adversarial attention.
         
-        Optimizes attention weights to maximize attention difference while
-        keeping the prediction close to the original.
-        """
         if original_attention is None or original_prediction is None:
             original_attention, original_prediction = self.get_original_attention_and_prediction(
                 token_ids, lengths
@@ -73,7 +61,7 @@ class AdversarialAttentionAttack:
         
         seq_length = original_attention.shape[0]
         
-        # Initialize adversarial attention logits from original
+        # adversarial attention logits from original
         adversarial_logits = original_attention.clone().detach()
         adversarial_logits.requires_grad = True
         
@@ -82,7 +70,7 @@ class AdversarialAttentionAttack:
         best_attention = original_attention.clone().detach()
         best_difference = 0
         
-        # Get hidden states for computing prediction with modified attention
+        # hidden states for computing prediction with modified attention
         with torch.no_grad():
             batch_size, seq_len = token_ids.shape
             mask = None
@@ -97,7 +85,7 @@ class AdversarialAttentionAttack:
         for iteration in range(self.max_iterations):
             optimizer.zero_grad()
             
-            # Normalize to valid attention distribution
+            # normalize to valid attention distribution
             if lengths is not None:
                 actual_len = lengths[0].item()
                 adversarial_logits[actual_len:] = -1e9
@@ -105,22 +93,21 @@ class AdversarialAttentionAttack:
             else:
                 normalized_attention = F.softmax(adversarial_logits, dim=0)
             
-            # Maximize attention difference
+            # maximize attention difference
             difference = torch.abs(normalized_attention - original_attention).sum()
             
-            # Compute prediction with adversarial attention through the model's classifier
+            # prediction with adversarial attention
             adv_attention_batch = normalized_attention.unsqueeze(0).unsqueeze(1)  # (1, 1, seq_length)
             context = torch.bmm(adv_attention_batch, hidden_states).squeeze(1)  # (1, hidden_dim)
             adv_prediction = self.model.classifier(context)
             
-            # Prediction difference penalty
+            # prediction difference penalty
             prediction_diff = (adv_prediction - original_prediction) ** 2
             
-            # Loss: maximize attention difference, minimize prediction difference
             loss = -difference + 100 * prediction_diff.squeeze()
             
             loss.backward()
-            optimizer.step()  # Fixed: was missing () call
+            optimizer.step()
             
             with torch.no_grad():
                 normalized_attention = F.softmax(adversarial_logits, dim=0)
@@ -144,9 +131,7 @@ class AdversarialAttentionAttack:
         original_prediction: Optional[float] = None,
         num_samples: int = 1000
     ) -> Tuple[torch.Tensor, float, Dict]:
-        """
-        Random sampling to find adversarial attention.
-        """
+        
         if original_attention is None or original_prediction is None:
             original_attention, original_prediction = self.get_original_attention_and_prediction(
                 token_ids, lengths
@@ -189,9 +174,7 @@ class AdversarialAttentionAttack:
         original_prediction: Optional[float] = None,
         num_permutations: int = 100
     ) -> Tuple[torch.Tensor, float, Dict]:
-        """
-        Use permutation-based search to find adversarial attention.
-        """
+        
         if original_attention is None or original_prediction is None:
             original_attention, original_prediction = self.get_original_attention_and_prediction(
                 token_ids, lengths
@@ -243,9 +226,7 @@ class AdversarialAttentionAttack:
         original_attention: Optional[torch.Tensor] = None,
         original_prediction: Optional[float] = None
     ) -> Tuple[torch.Tensor, float, Dict]:
-        """
-        Find maximum entropy (most uniform) attention that keeps same prediction.
-        """
+        
         if original_attention is None or original_prediction is None:
             original_attention, original_prediction = self.get_original_attention_and_prediction(
                 token_ids, lengths
@@ -275,9 +256,7 @@ class AdversarialAttentionAttack:
         token_ids: torch.Tensor,
         lengths: Optional[torch.Tensor] = None
     ) -> Dict:
-        """
-        Run all methods and return best result.
-        """
+        
         original_attention, original_prediction = self.get_original_attention_and_prediction(
             token_ids, lengths
         )
@@ -327,7 +306,7 @@ class AdversarialAttentionAttack:
 
 
 def compute_attention_difference(attention1: torch.Tensor, attention2: torch.Tensor) -> Dict:
-    """Compute various metrics for attention difference."""
+    
     diff = torch.abs(attention1 - attention2)
     
     return {
@@ -349,9 +328,7 @@ def run_adversarial_experiment(
     max_length: int = 256,
     device: str = 'cpu'
 ) -> Dict:
-    """
-    Run full adversarial attention experiment on a single text.
-    """
+    
     import re
     
     def tokenize(text):

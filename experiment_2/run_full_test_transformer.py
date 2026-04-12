@@ -1,14 +1,3 @@
-r"""
-Experiment 2 (Transformer): Run Adversarial Attention Attack on Full IMDB Test Dataset (GPU).
-
-This script loads the fine-tuned DistilBERT model, runs adversarial attention attacks
-on every sample in the IMDB test set, and saves detailed per-sample results to JSON.
-
-Usage:
-    cd c:\project\CS-299-main
-    python experiment_2/run_full_test_transformer.py
-"""
-
 import torch
 import torch.nn.functional as F
 import json
@@ -26,15 +15,7 @@ from models_transformer.model import TransformerClassifier
 from models_transformer.dataset import IMDBTransformerDataset, get_tokenizer
 
 
-# =============================================================================
-# ADVERSARIAL ATTACK METHODS (Transformer-specific, GPU-aware)
-# =============================================================================
-
 def get_attention_and_prediction(model, input_ids, attention_mask, device):
-    """
-    Run transformer forward pass and extract attention + prediction.
-    Returns: attention (seq_len,), prediction class prob, logits
-    """
     model.eval()
     with torch.no_grad():
         input_ids = input_ids.to(device)
@@ -43,12 +24,12 @@ def get_attention_and_prediction(model, input_ids, attention_mask, device):
         logits, cls_attention = model(input_ids, attention_mask, return_attention=True)
         probs = torch.softmax(logits, dim=-1)
 
-    # cls_attention: (batch, seq_len) — attention from [CLS] to all tokens
+    # cls_attention
     attn = cls_attention[0]  # (seq_len,)
     pred_class = torch.argmax(probs, dim=-1).item()
     pred_prob = probs[0, pred_class].item()
 
-    # Get hidden states for adversarial re-scoring
+    # hidden states for adversarial re-scoring
     with torch.no_grad():
         outputs = model.distilbert(input_ids=input_ids, attention_mask=attention_mask)
         hidden_states = outputs.last_hidden_state  # (1, seq_len, hidden_dim)
@@ -57,7 +38,6 @@ def get_attention_and_prediction(model, input_ids, attention_mask, device):
 
 
 def adversarial_entropy(original_attention, attention_mask, device):
-    """Maximum-entropy (uniform) adversarial attention."""
     seq_len = original_attention.shape[0]
     valid_len = int(attention_mask[0].sum().item())
     uniform = torch.zeros(seq_len, device=device)
@@ -68,7 +48,6 @@ def adversarial_entropy(original_attention, attention_mask, device):
 
 
 def adversarial_permutation(original_attention, attention_mask, device, num_permutations=100):
-    """Permutation-based adversarial attention."""
     valid_len = int(attention_mask[0].sum().item())
     seq_len = original_attention.shape[0]
     best_attention = None
@@ -102,7 +81,6 @@ def adversarial_permutation(original_attention, attention_mask, device, num_perm
 
 
 def adversarial_random(original_attention, attention_mask, device, num_samples=500):
-    """Random sampling adversarial attention."""
     valid_len = int(attention_mask[0].sum().item())
     seq_len = original_attention.shape[0]
     best_attention = None
@@ -126,18 +104,13 @@ def adversarial_random(original_attention, attention_mask, device, num_samples=5
 
 
 def compute_adversarial_prediction_transformer(model, hidden_states, adv_attention, device):
-    """
-    Compute prediction using adversarial attention weights on the transformer.
-    We replace the CLS token representation with a weighted sum of all hidden states
-    using adversarial attention, then pass through the classifier head.
-    """
     model.eval()
     with torch.no_grad():
-        # adv_attention: (seq_len,) -> (1, 1, seq_len)
+        # adv_attention
         adv_attn_batch = adv_attention.unsqueeze(0).unsqueeze(1)
-        # hidden_states: (1, seq_len, hidden_dim)
+        # hidden_states
         context = torch.bmm(adv_attn_batch, hidden_states).squeeze(1)  # (1, hidden_dim)
-        # Through classifier head
+        
         pooled_output = model.dropout(context)
         logits = model.classifier(pooled_output)
         probs = torch.softmax(logits, dim=-1)
@@ -148,8 +121,7 @@ def compute_adversarial_prediction_transformer(model, hidden_states, adv_attenti
 
 
 def run_attack_single_sample_transformer(model, input_ids, attention_mask, device):
-    """Run adversarial attack on a single transformer sample."""
-
+    
     attn, orig_class, orig_prob, orig_probs, hidden_states = get_attention_and_prediction(
         model, input_ids, attention_mask, device
     )
@@ -157,12 +129,10 @@ def run_attack_single_sample_transformer(model, input_ids, attention_mask, devic
     valid_len = int(attention_mask[0].sum().item())
     seq_len = attn.shape[0]
 
-    # Run all three attack methods
     entropy_attn, entropy_info = adversarial_entropy(attn, attention_mask, device)
     perm_attn, perm_info = adversarial_permutation(attn, attention_mask, device, num_permutations=100)
     rand_attn, rand_info = adversarial_random(attn, attention_mask, device, num_samples=500)
 
-    # Pick best method
     methods = {
         'entropy': (entropy_attn, entropy_info),
         'permutation': (perm_attn, perm_info),
@@ -172,12 +142,12 @@ def run_attack_single_sample_transformer(model, input_ids, attention_mask, devic
     best_adv_attention = methods[best_method][0]
     best_diff = methods[best_method][1]['difference']
 
-    # Compute adversarial prediction
+    # adversarial prediction
     adv_class, adv_prob, adv_probs = compute_adversarial_prediction_transformer(
         model, hidden_states, best_adv_attention, device
     )
 
-    # Metrics
+    # metrics
     orig_trimmed = attn[:valid_len]
     adv_trimmed = best_adv_attention[:valid_len]
 
@@ -238,12 +208,7 @@ def run_attack_single_sample_transformer(model, input_ids, attention_mask, devic
     }
 
 
-# =============================================================================
-# MAIN
-# =============================================================================
-
 def load_model(device):
-    """Load trained DistilBERT model."""
     model = TransformerClassifier(
         model_name=TransformerConfig.MODEL_NAME,
         num_labels=TransformerConfig.NUM_LABELS
@@ -261,21 +226,12 @@ def load_model(device):
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
-    if device.type == 'cuda':
-        print(f"  GPU: {torch.cuda.get_device_name(0)}")
-        print(f"  Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
 
     results_dir = Path(__file__).parent / "results_transformer"
     results_dir.mkdir(exist_ok=True)
 
-    # Load model
-    print("\nLoading DistilBERT model...")
     model = load_model(device)
-    print("Model loaded!")
 
-    # Load tokenizer + test dataset
-    print("\nLoading IMDB test dataset...")
     tokenizer = get_tokenizer(TransformerConfig.MODEL_NAME)
     test_dataset = IMDBTransformerDataset(
         str(TransformerConfig.DATA_DIR),
@@ -283,13 +239,7 @@ def main():
         max_length=TransformerConfig.MAX_SEQ_LENGTH,
         split="test"
     )
-    print(f"Test dataset size: {len(test_dataset)} samples")
-
-    # Run experiment
-    print("\n" + "=" * 70)
-    print("ADVERSARIAL ATTENTION ATTACK ON TRANSFORMER (FULL TEST SET)")
-    print("=" * 70)
-
+    
     all_results = []
     start_time = time.time()
 
@@ -322,8 +272,6 @@ def main():
 
     total_time = time.time() - start_time
 
-    # Save final results
-    print("\nSaving results...")
     final = {
         'experiment': 'adversarial_attention_attack_transformer',
         'model': 'DistilBERT',
@@ -336,12 +284,6 @@ def main():
     out_path = results_dir / "full_test_results_transformer.json"
     with open(out_path, 'w') as f:
         json.dump(final, f, indent=2)
-    print(f"Results saved to: {out_path}")
-
-    # Summary
-    print("\n" + "=" * 70)
-    print("TRANSFORMER EXPERIMENT SUMMARY")
-    print("=" * 70)
 
     l1_diffs = [r['l1_difference'] for r in all_results]
     cos_sims = [r['cosine_similarity'] for r in all_results]
@@ -352,19 +294,6 @@ def main():
         m = r['best_method']
         method_counts[m] = method_counts.get(m, 0) + 1
 
-    print(f"\nTotal samples: {len(all_results)}")
-    print(f"Time: {total_time/60:.1f} min")
-    print(f"\n--- Attention Difference ---")
-    print(f"  Avg L1 Diff:         {np.mean(l1_diffs):.4f} ± {np.std(l1_diffs):.4f}")
-    print(f"  Avg Cosine Sim:      {np.mean(cos_sims):.4f} ± {np.std(cos_sims):.4f}")
-    print(f"  Avg JSD:             {np.mean(js_divs):.4f} ± {np.std(js_divs):.4f}")
-    print(f"\n--- Prediction Stability ---")
-    print(f"  Same Class Rate:     {same_count}/{len(all_results)} ({100*same_count/len(all_results):.1f}%)")
-    print(f"\n--- Best Method ---")
-    for m, c in sorted(method_counts.items(), key=lambda x: -x[1]):
-        print(f"  {m:15s}: {c:5d} ({100*c/len(all_results):.1f}%)")
-
-    # Save summary
     summary = {
         'total_samples': len(all_results),
         'total_time_seconds': total_time,
@@ -379,13 +308,10 @@ def main():
     with open(results_dir / "summary_statistics_transformer.json", 'w') as f:
         json.dump(summary, f, indent=2)
 
-    # Clean checkpoint
     cp = results_dir / "transformer_results_checkpoint.json"
     if cp.exists():
         cp.unlink()
-
-    print("\nDone! Now run: python experiment_2/generate_plots_transformer.py")
-
+        
 
 if __name__ == '__main__':
     main()
