@@ -1,7 +1,3 @@
-"""
-Webapp routes for Experiment 1: Attention vs Feature Importance Correlation.
-Paper Section 4.1 — Algorithm 1
-"""
 
 import json
 from pathlib import Path
@@ -21,7 +17,6 @@ initialized = False
 
 
 def initialize_experiment1_models():
-    """Initialize models for experiment 1."""
     global bilstm_model, vocab, initialized
 
     if initialized:
@@ -71,7 +66,6 @@ def initialize_experiment1_models():
 
 @experiment1_bp.route('/analyze', methods=['POST'])
 def analyze_correlation():
-    """Run attention vs feature importance correlation analysis."""
     try:
         if not initialize_experiment1_models():
             return jsonify({'error': 'Model could not be loaded.'}), 500
@@ -95,7 +89,6 @@ def analyze_correlation():
 
 @experiment1_bp.route('/sample', methods=['GET'])
 def get_sample_texts():
-    """Get sample texts for demonstration."""
     samples = {
         'positive': "This movie was absolutely fantastic! Great acting and brilliant storyline.",
         'negative': "Terrible movie! Complete waste of time and money. Very disappointing.",

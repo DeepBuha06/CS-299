@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from pathlib import Path
 
-# Config
 RESULTS_DIR = Path(__file__).parent / "results"
 RESULTS_FILE = RESULTS_DIR / "full_test_results.json"
 KENDALL_TAU_FILE = RESULTS_DIR / "kendall_tau_results.json"
@@ -261,7 +260,6 @@ def create_summary_dashboard(results, data):
     ax.set_ylim(-0.05, 1.05)
     ax.set_aspect('equal')
 
-    # Bottom-left: Same Class pie
     ax = axes[1, 0]
     same = same_count
     changed = len(results) - same
@@ -271,7 +269,6 @@ def create_summary_dashboard(results, data):
            autopct='%1.1f%%', startangle=90, textprops={'fontsize': 12})
     ax.set_title('Prediction Class Stability')
 
-    # Bottom-right: Key stats text
     ax = axes[1, 1]
     ax.axis('off')
     stats_text = (

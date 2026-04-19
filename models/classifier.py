@@ -1,22 +1,9 @@
-"""
-Classifier module.
-Steps 8, 9, 10: Dense layer, sigmoid/softmax activation, and final prediction.
-"""
-
 import torch
 import torch.nn as nn
 from typing import Tuple, Optional
 
 
 class Classifier(nn.Module):
-    """
-    Classification head for the attention model.
-    
-    Steps 8-10: Classification
-    - Step 8: Dense Layer: z = W·c + b
-    - Step 9: Activation: ŷ = σ(z) for binary
-    - Step 10: Prediction: class = 1 if ŷ ≥ 0.5 else 0
-    """
     
     def __init__(
         self,

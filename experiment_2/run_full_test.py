@@ -80,7 +80,6 @@ def adversarial_permutation(
                 i, j = np.random.choice(valid_len, 2, replace=False)
                 perm[i], perm[j] = perm[j], perm[i]
 
-        # Renormalize
         perm_sum = perm.sum()
         if perm_sum > 0:
             perm = perm / perm_sum
@@ -187,19 +186,16 @@ def run_attack_single_sample(
         adv_trimmed.unsqueeze(0)
     ).item()
 
-    # KL Divergence
     orig_clipped = torch.clamp(orig_trimmed, min=1e-10)
     adv_clipped = torch.clamp(adv_trimmed, min=1e-10)
     kl_div = (orig_clipped * torch.log(orig_clipped / adv_clipped)).sum().item()
 
-    # JS Divergence
     m = 0.5 * (orig_clipped + adv_clipped)
     js_div = 0.5 * (
         (orig_clipped * torch.log(orig_clipped / m)).sum().item() +
         (adv_clipped * torch.log(adv_clipped / m)).sum().item()
     )
 
-    # Pearson correlation
     orig_np = orig_trimmed.cpu().numpy()
     adv_np = adv_trimmed.cpu().numpy()
     corr = np.corrcoef(orig_np, adv_np)[0, 1]

@@ -3,60 +3,40 @@ import numpy as np
 from torch.nn import functional as F
 
 def compute_integrated_gradients(model, input_ids, attention_mask, target_class=None, steps=50):
-    """
-    Computes Integrated Gradients for a HuggingFace Transformer.
-    This completely bypasses the Attention matrices and looks only at the raw Input Embeddings.
-
-    Fixes applied:
-      1. Baseline is PAD token embedding (in-distribution), not zeros (OOD)
-      2. Grad is explicitly .detach().clone() before accumulation — no leakage between steps
-      3. Subword tokens (##word) are pooled back to word level after attribution
-      4. sign is preserved during normalization — abs() only used for the denominator
-      5. target_class forward pass is done outside no_grad carefully
-    """
     model.eval()
 
     # 1. Get embedding layer
     embeddings_layer = model.distilbert.embeddings.word_embeddings
 
     with torch.no_grad():
-        # Get the actual embeddings for the words
         input_embeds = embeddings_layer(input_ids)
 
         # FIX 1: Use PAD token (id=0) embedding as baseline instead of zeros.
         # zeros are OUT OF DISTRIBUTION for DistilBERT — the model was never trained
         # on zero vectors, so gradients along the zero→input path are noisy/unreliable.
-        # PAD token embedding is the correct "absent token" representation.
         pad_token_id = torch.zeros_like(input_ids)  # all zeros = PAD token id
         baseline_embeds = embeddings_layer(pad_token_id)
 
-        # Determine the target class if not provided
         if target_class is None:
             logits, _ = model(input_ids=input_ids, attention_mask=attention_mask)
             target_class = torch.argmax(logits, dim=-1).item()
             # target_class = 0
 
     # 2. Iterate and interpolate between Baseline (0%) and Actual Input (100%)
-    # We will accumulate the gradients across these steps
     integrated_grads = torch.zeros_like(input_embeds)
 
     for alpha in np.linspace(0, 1.0, steps):
-        # Create the interpolated embedding (e.g., 10% of the way from baseline to input)
         interpolated_embeds = baseline_embeds + alpha * (input_embeds - baseline_embeds)
         interpolated_embeds = interpolated_embeds.detach().requires_grad_(True)
 
-        # Manually pass the embeddings to the model
         # (We skip the first embedding layer since we are providing them directly)
         outputs = model.distilbert(inputs_embeds=interpolated_embeds, attention_mask=attention_mask)
         hidden_states = outputs[0]
 
-        # Pass through the classifier head
-        # Use [CLS] token representation (first token)
         cls_output = hidden_states[:, 0, :]
         pooled_output = model.dropout(cls_output)
         logits = model.classifier(pooled_output)
 
-        # Get the probability for our target class
         probs = torch.softmax(logits, dim=-1)
         target_prob = probs[0, target_class]
 
@@ -65,7 +45,6 @@ def compute_integrated_gradients(model, input_ids, attention_mask, target_class=
         target_prob.backward()
 
         # FIX 2: Explicitly .detach().clone() the gradient before accumulating.
-        # Without this, interpolated_embeds.grad may still carry autograd graph
         # references from the previous iteration, causing gradient leakage.
         integrated_grads += interpolated_embeds.grad.detach().clone()
 
@@ -84,9 +63,7 @@ def compute_integrated_gradients(model, input_ids, attention_mask, target_class=
     #                               0.0)
 
     # FIX 3: Normalize while PRESERVING SIGN.
-    # The original code used abs() before normalizing which destroyed all direction info
     # (you can no longer tell which words push toward positive vs negative).
-    # Correct: divide by sum of abs values (so scores sum to ±1), but keep the sign.
     score_sum = np.sum(np.abs(token_attributions))
     if score_sum > 0:
         token_attributions = token_attributions / score_sum
@@ -95,42 +72,26 @@ def compute_integrated_gradients(model, input_ids, attention_mask, target_class=
 
 
 def pool_subword_attributions(tokens, attributions):
-    """
-    FIX 4: Pool subword token attributions back to whole-word level.
-
-    DistilBERT uses WordPiece tokenization. "hauntingly" becomes ["haunting", "##ly"].
-    Each subword gets its own attribution score. If you display them separately,
-    "##ly" appears to outscore "haunting" because "##ly" is a suffix shared by ALL
-    intensifying adverbs ("absolutely", "stunningly", "beautifully") and therefore
-    carries strong sentiment signal in the embedding space.
-
-    Solution: sum attributions for all subword pieces of the same word together,
-    and display under the first (root) piece's surface form.
-    """
     word_tokens = []
     word_scores = []
     current_word = None
     current_score = 0.0
 
     for token, score in zip(tokens, attributions):
-        # Skip special tokens
         if token in ['[CLS]', '[SEP]', '[PAD]']:
             continue
 
         if token.startswith('##'):
-            # This is a continuation subword — add its score to the current word
             current_score += score
             if current_word is not None:
                 current_word += token[2:]  # Reconstruct the full word string
         else:
-            # This is the start of a new word
             if current_word is not None:
                 word_tokens.append(current_word)
                 word_scores.append(current_score)
             current_word = token
             current_score = score
 
-    # Don't forget the last word
     if current_word is not None:
         word_tokens.append(current_word)
         word_scores.append(current_score)

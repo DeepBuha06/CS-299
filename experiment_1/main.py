@@ -70,7 +70,6 @@ def main():
     
     results = run_experiment_1(model, test_texts, vocab, device='cpu')
     
-    # Print per-text results
     print("=" * 70)
     print("PER-TEXT RESULTS")
     print("=" * 70)
@@ -82,7 +81,6 @@ def main():
         print(f"τ_gradient: {result['correlations']['tau_gradient']:.4f} (p={result['correlations']['tau_gradient_pvalue']:.4f})")
         print(f"τ_loo:      {result['correlations']['tau_loo']:.4f} (p={result['correlations']['tau_loo_pvalue']:.4f})")
         
-        # Show top 5 tokens by each measure
         sorted_by_attn = sorted(result['per_token_data'], key=lambda x: x['attention'], reverse=True)[:5]
         sorted_by_grad = sorted(result['per_token_data'], key=lambda x: x['gradient_importance'], reverse=True)[:5]
         sorted_by_loo = sorted(result['per_token_data'], key=lambda x: x['loo_importance'], reverse=True)[:5]
@@ -91,7 +89,6 @@ def main():
         print(f"  Top 5 by Gradient:    {', '.join(d['token'] for d in sorted_by_grad)}")
         print(f"  Top 5 by LOO:         {', '.join(d['token'] for d in sorted_by_loo)}")
     
-    # Print summary
     print("\n" + "=" * 70)
     print("AGGREGATE RESULTS (Paper Table 2 format)")
     print("=" * 70)

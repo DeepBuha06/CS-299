@@ -12,12 +12,10 @@ def extract_metrics(batch_result_file):
     comp_scores = {1: [], 5: [], 10: []}
     suff_scores = {1: [], 5: [], 10: []}
     
-    # Extract scores for each k value
     for review in data['review_details']:
         if 'error' in review:
             continue
         
-        # Extract comprehensiveness scores
         if 'comprehensiveness' in review:
             comp_data = review['comprehensiveness']
             if 'results_by_k' in comp_data:
@@ -26,7 +24,6 @@ def extract_metrics(batch_result_file):
                     if k in comp_scores and 'comprehensiveness' in k_results:
                         comp_scores[k].append(k_results['comprehensiveness'])
         
-        # Extract sufficiency scores
         if 'sufficiency' in review:
             suff_data = review['sufficiency']
             if 'results_by_k' in suff_data:
@@ -59,7 +56,6 @@ def plot_individual_histograms(comp_scores, suff_scores, comp_stats, suff_stats,
     k_values = [1, 5, 10]
     colors = ['#FF6B6B', '#4ECDC4', '#45B7D1']
     
-    # Plot comprehensiveness for each k
     for idx, k in enumerate(k_values):
         fig, ax = plt.subplots(figsize=(10, 6))
         scores = comp_scores[k]
@@ -74,7 +70,6 @@ def plot_individual_histograms(comp_scores, suff_scores, comp_stats, suff_stats,
         ax.legend(fontsize=11)
         ax.grid(axis='y', alpha=0.3)
         
-        # Add statistics box
         stats_text = (f"Mean: {comp_stats[k]['mean']:.6f}\n"
                      f"Std Dev: {comp_stats[k]['std']:.6f}\n"
                      f"Min: {comp_stats[k]['min']:.6f}\n"
@@ -90,7 +85,6 @@ def plot_individual_histograms(comp_scores, suff_scores, comp_stats, suff_stats,
         fig.savefig(output_file, dpi=300, bbox_inches='tight')
         plt.close(fig)
     
-    # Plot sufficiency for each k
     for idx, k in enumerate(k_values):
         fig, ax = plt.subplots(figsize=(10, 6))
         scores = suff_scores[k]
@@ -105,7 +99,6 @@ def plot_individual_histograms(comp_scores, suff_scores, comp_stats, suff_stats,
         ax.legend(fontsize=11)
         ax.grid(axis='y', alpha=0.3)
         
-        # Add statistics box
         stats_text = (f"Mean: {suff_stats[k]['mean']:.6f}\n"
                      f"Std Dev: {suff_stats[k]['std']:.6f}\n"
                      f"Min: {suff_stats[k]['min']:.6f}\n"
@@ -127,7 +120,6 @@ def plot_comparison(comp_stats, suff_stats, output_dir):
     
     k_values = [1, 5, 10]
     
-    # Comparison of means
     fig, ax = plt.subplots(figsize=(10, 6))
     comp_means = [comp_stats[k]['mean'] for k in k_values]
     suff_means = [suff_stats[k]['mean'] for k in k_values]
@@ -146,7 +138,6 @@ def plot_comparison(comp_stats, suff_stats, output_dir):
     ax.legend(fontsize=11)
     ax.grid(axis='y', alpha=0.3)
     
-    # Add value labels on bars
     for bar in bars1:
         height = bar.get_height()
         ax.text(bar.get_x() + bar.get_width()/2., height,
@@ -160,7 +151,6 @@ def plot_comparison(comp_stats, suff_stats, output_dir):
     fig.savefig(output_dir / 'comparison_means.png', dpi=300, bbox_inches='tight')
     plt.close(fig)
     
-    # Comparison of standard deviations
     fig, ax = plt.subplots(figsize=(10, 6))
     comp_stds = [comp_stats[k]['std'] for k in k_values]
     suff_stds = [suff_stats[k]['std'] for k in k_values]
@@ -176,7 +166,6 @@ def plot_comparison(comp_stats, suff_stats, output_dir):
     ax.legend(fontsize=11)
     ax.grid(axis='y', alpha=0.3)
     
-    # Add value labels on bars
     for bar in bars1:
         height = bar.get_height()
         ax.text(bar.get_x() + bar.get_width()/2., height,
@@ -228,23 +217,18 @@ def main():
     output_dir = Path(__file__).parent / 'plots'
     output_dir.mkdir(exist_ok=True)
     
-    # Extract metrics
     comp_scores, suff_scores = extract_metrics(batch_result_file)
     
-    # Calculate statistics
     comp_stats = calculate_statistics(comp_scores)
     suff_stats = calculate_statistics(suff_scores)
     
-    # Print summary
     print_summary(comp_stats, suff_stats)
     
-    # Create and save individual plots
     print("\n📊 Creating individual histogram plots...")
     plot_individual_histograms(comp_scores, suff_scores, comp_stats, suff_stats, output_dir)
     print(f"✓ Saved comprehensiveness histograms (k=1, 5, 10)")
     print(f"✓ Saved sufficiency histograms (k=1, 5, 10)")
     
-    # Create and save comparison plots
     print("\n📊 Creating comparison plots...")
     plot_comparison(comp_stats, suff_stats, output_dir)
     print(f"✓ Saved comparison_means.png")

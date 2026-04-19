@@ -34,10 +34,8 @@ class FeatureImportanceAnalyzer:
 
         self.model.eval()
         
-        # Forward through model manually to control gradient flow
         batch_size, seq_len = token_ids.shape
         
-        # Create mask
         mask = None
         if lengths is not None:
             range_tensor = torch.arange(seq_len, device=token_ids.device)
@@ -47,10 +45,8 @@ class FeatureImportanceAnalyzer:
         embeddings = self.model.embedding(token_ids)  # (batch, seq_len, embed_dim)
         embeddings = embeddings.detach().requires_grad_(True)
         
-        # Forward through encoder
         hidden_states, _ = self.model.encoder(embeddings, lengths)
         
-        # Get attention weights
         context_vector, attention_weights = self.model.attention(hidden_states, mask)
         
         # detach attention and recompute context
@@ -62,13 +58,10 @@ class FeatureImportanceAnalyzer:
             hidden_states                      # (batch, seq_len, hidden_dim)
         ).squeeze(1)                          # (batch, hidden_dim)
         
-        # Forward through classifier
         prediction = self.model.classifier(context_recomputed)
         
-        # Backpropagate to get gradients w.r.t. embeddings
         prediction.sum().backward()
         
-        # Gradient importance
         gradient_importance = embeddings.grad.norm(dim=-1).squeeze(0)
         
         return gradient_importance.detach()
@@ -82,7 +75,6 @@ class FeatureImportanceAnalyzer:
         
         seq_length = int(lengths[0].item())
         
-        # Get original prediction
         with torch.no_grad():
             original_pred, _ = self.model(token_ids, lengths, return_attention=True)
             original_pred = original_pred.squeeze()
@@ -90,7 +82,6 @@ class FeatureImportanceAnalyzer:
         loo_importance = torch.zeros(token_ids.shape[1])
         
         for t in range(seq_length):
-            # Create masked input: replace token t with PAD
             masked_ids = token_ids.clone()
             masked_ids[0, t] = pad_idx
             
@@ -98,7 +89,6 @@ class FeatureImportanceAnalyzer:
                 masked_pred, _ = self.model(masked_ids, lengths, return_attention=True)
                 masked_pred = masked_pred.squeeze()
             
-            # TVD for binary
             loo_importance[t] = torch.abs(masked_pred - original_pred).item()
         
         return loo_importance
@@ -228,7 +218,6 @@ class FeatureImportanceAnalyzer:
         }
     
     def _tokenize(self, text: str) -> List[str]:
-        """Simple tokenization."""
         text = text.lower()
         text = re.sub(r'<[^>]+>', ' ', text)
         words = re.findall(r'\b[a-z]+\b', text)

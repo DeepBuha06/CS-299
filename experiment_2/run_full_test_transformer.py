@@ -258,7 +258,6 @@ def main():
             print(f"\n  Warning: Sample {idx} failed: {e}")
             continue
 
-        # Checkpoint every 1000
         if (idx + 1) % 1000 == 0:
             elapsed = time.time() - start_time
             rate = (idx + 1) / elapsed

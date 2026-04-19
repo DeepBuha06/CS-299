@@ -1,7 +1,3 @@
-"""
-Build vocabulary from IMDB dataset.
-Creates vocab.json with the most frequent words from train reviews.
-"""
 
 import os
 import re
@@ -11,17 +7,13 @@ from pathlib import Path
 
 
 def tokenize(text):
-    """Simple tokenizer: lowercase and extract words."""
     text = text.lower()
-    # Remove HTML tags like <br />
     text = re.sub(r'<[^>]+>', ' ', text)
-    # Extract words (alphanumeric sequences)
     words = re.findall(r'\b[a-z]+\b', text)
     return words
 
 
 def load_reviews(data_dir):
-    """Load all reviews from neg and pos folders."""
     reviews = []
     data_path = Path(data_dir)
     
@@ -42,7 +34,6 @@ def load_reviews(data_dir):
 
 
 def build_vocab(reviews, vocab_size=1000):
-    """Build vocabulary from reviews."""
     word_counts = Counter()
     
     print("Tokenizing reviews...")
@@ -54,10 +45,8 @@ def build_vocab(reviews, vocab_size=1000):
     
     print(f"Total unique words: {len(word_counts)}")
     
-    # Get most common words
     most_common = word_counts.most_common(vocab_size)
     
-    # Create vocab dict with special tokens
     vocab = {
         '<PAD>': 0,
         '<UNK>': 1,
@@ -70,7 +59,6 @@ def build_vocab(reviews, vocab_size=1000):
 
 
 def main():
-    # Configuration
     DATA_DIR = 'data/raw/imdb/train'
     VOCAB_SIZE = 15000
     OUTPUT_FILE = 'vocab.json'
@@ -79,24 +67,20 @@ def main():
     print(f"Target vocab size: {VOCAB_SIZE}")
     print("-" * 50)
     
-    # Load reviews
     reviews = load_reviews(DATA_DIR)
     print(f"Loaded {len(reviews)} reviews total")
     print("-" * 50)
     
-    # Build vocabulary
     vocab, word_counts = build_vocab(reviews, vocab_size=VOCAB_SIZE)
     
     print("-" * 50)
     print(f"Final vocabulary size: {len(vocab)} (including special tokens)")
     
-    # Save vocabulary
     with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
         json.dump(vocab, f, indent=2)
     
     print(f"Saved vocabulary to {OUTPUT_FILE}")
     
-    # Print some stats
     print("\nTop 20 words:")
     for word, count in word_counts.most_common(20):
         print(f"  {word}: {count}")

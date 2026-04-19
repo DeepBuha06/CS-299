@@ -1,8 +1,3 @@
-"""
-Evaluation script for trained model.
-Also includes attention visualization.
-"""
-
 import json
 import torch
 import matplotlib.pyplot as plt
@@ -16,7 +11,6 @@ from utils.metrics import calculate_metrics, print_metrics
 
 
 def load_model(model_path, preprocessor):
-    """Load trained model."""
     model = AttentionClassifier(
         vocab_size=preprocessor.vocab_size,
         embedding_dim=Config.EMBEDDING_DIM,
@@ -37,24 +31,18 @@ def load_model(model_path, preprocessor):
 
 
 def predict_single(model, preprocessor, text):
-    """Predict sentiment for a single text with attention visualization."""
-    # Tokenize
     tokens = preprocessor.tokenize(text)
     
-    # Process
     token_ids, length = preprocessor.process(text, return_length=True)
     token_ids = token_ids.unsqueeze(0).to(Config.DEVICE)
     lengths = torch.tensor([length]).to(Config.DEVICE)
     
-    # Predict
     with torch.no_grad():
         prob, attention = model(token_ids, lengths, return_attention=True)
     
-    # Get results
     prediction = "Positive" if prob.item() >= 0.5 else "Negative"
     confidence = prob.item() if prob.item() >= 0.5 else 1 - prob.item()
     
-    # Get attention weights for actual tokens
     attention_weights = attention[0, :length].cpu().numpy()
     actual_tokens = tokens[:length]
     
@@ -69,17 +57,14 @@ def predict_single(model, preprocessor, text):
 
 
 def visualize_attention(result, save_path=None):
-    """Visualize attention weights."""
     tokens = result["tokens"][:20]  # Limit for visibility
     attention = result["attention"][:20]
     
     fig, ax = plt.subplots(figsize=(12, 3))
     
-    # Create bar chart
     x = np.arange(len(tokens))
     bars = ax.bar(x, attention, color='steelblue', alpha=0.7)
     
-    # Highlight top attention
     max_idx = np.argmax(attention)
     bars[max_idx].set_color('crimson')
     
@@ -100,14 +85,12 @@ def visualize_attention(result, save_path=None):
 
 
 def main():
-    # Load preprocessor
     print("Loading vocabulary...")
     preprocessor = Preprocessor.from_vocab_file(
         Config.VOCAB_FILE,
         max_length=Config.MAX_SEQ_LENGTH
     )
     
-    # Load model
     model_path = Config.MODEL_DIR / "bilstm_model.pt"
     if not model_path.exists():
         print(f"Model not found at {model_path}")
@@ -117,7 +100,6 @@ def main():
     print("Loading model...")
     model = load_model(model_path, preprocessor)
     
-    # Test examples
     test_texts = [
         "This movie was absolutely fantastic! The acting was superb and the storyline kept me engaged throughout.",
         "Terrible waste of time. The plot made no sense and the acting was wooden.",
@@ -125,7 +107,6 @@ def main():
     ]
     
     print("\n" + "=" * 60)
-    print("PREDICTIONS")
     print("=" * 60)
     
     for i, text in enumerate(test_texts):
@@ -134,14 +115,12 @@ def main():
         print(f"Prediction: {result['prediction']} (confidence: {result['confidence']:.2%})")
         print(f"Top attended words: ", end="")
         
-        # Show top 5 attended words
         indices = np.argsort(result["attention"])[-5:][::-1]
         for idx in indices:
             if idx < len(result["tokens"]):
                 print(f"{result['tokens'][idx]} ({result['attention'][idx]:.3f})", end=" ")
         print()
         
-        # Save attention visualization
         save_path = f"attention_viz_{i+1}.png"
         visualize_attention(result, save_path=save_path)
 

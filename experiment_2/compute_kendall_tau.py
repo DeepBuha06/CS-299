@@ -107,10 +107,8 @@ def main():
     results_dir = Path(__file__).parent / "results"
     results_dir.mkdir(exist_ok=True)
 
-    # Load model
     model = load_model(device)
 
-    # Load test dataset
     preprocessor = Preprocessor.from_vocab_file(
         Config.VOCAB_FILE,
         max_length=Config.MAX_SEQ_LENGTH

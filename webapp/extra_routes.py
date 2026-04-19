@@ -1,6 +1,3 @@
-"""
-Flask routes for Extra Tasks: Attention Rollout & Relevance Propagation.
-"""
 
 import sys
 import numpy as np
@@ -65,9 +62,6 @@ def _tokenize_text(text):
 import string
 
 def _filter_special(tokens, *arrs):
-    """Remove special tokens and structural punctuation, re-normalize score arrays."""
-    # BERT uses special tokens and punctuation (like '.') as structural hubs/aggregators.
-    # We filter them out so the visualizations highlight semantic content words.
     PUNCT = set(string.punctuation)
     
     idx = [i for i, t in enumerate(tokens) if t not in SPECIAL_TOKENS and t not in PUNCT]
@@ -83,7 +77,6 @@ def _filter_special(tokens, *arrs):
 
 
 def _rank_diff_stats(raw, rollout):
-    """Compute rank-based difference metrics between raw attention and rollout."""
     n = len(raw)
     if n < 2:
         return {'kendall_tau': 0, 'rank_changes': [], 'top5_raw': [], 'top5_rollout': []}
@@ -95,7 +88,6 @@ def _rank_diff_stats(raw, rollout):
     if np.isnan(tau):
         tau = 0.0
 
-    # Rank changes: positive = promoted by rollout, negative = demoted
     rank_changes = (raw_ranks - roll_ranks).tolist()
 
     top5_raw = np.argsort(-np.array(raw))[:5].tolist()
@@ -132,13 +124,11 @@ def rollout_analysis():
                                      output_attentions=True)
         attentions = list(outputs.attentions)
 
-    # Raw last-layer CLS attention (content tokens only for fair comparison)
     raw_attn = attentions[-1].mean(dim=1)[0, 0, :valid_len].cpu().numpy()
     rs = raw_attn.sum()
     if rs > 0:
         raw_attn = raw_attn / rs
 
-    # Rollout with discard_ratio to sharpen signal
     cls_rel = get_cls_rollout(attentions, discard_ratio=0.1)[0][:valid_len].cpu().numpy()
     rls = cls_rel.sum()
     if rls > 0:
@@ -147,7 +137,6 @@ def rollout_analysis():
     tokens = _tokenizer.convert_ids_to_tokens(input_ids[0])[:valid_len]
     tokens_clean, raw_clean, roll_clean = _filter_special(tokens, raw_attn.tolist(), cls_rel.tolist())
 
-    # Rank analysis
     stats = _rank_diff_stats(raw_clean, roll_clean)
 
     return jsonify({
@@ -179,7 +168,6 @@ def lrp_analysis():
         probs = torch.softmax(logits, dim=-1)
         pred_class = torch.argmax(probs, dim=-1).item()
 
-    # Raw attention for comparison
     with torch.no_grad():
         outputs = _model.distilbert(input_ids=input_ids, attention_mask=attention_mask,
                                      output_attentions=True)
@@ -219,7 +207,6 @@ def ig_aggregate():
     return jsonify({'error': 'Results not found.'}), 404
 
 def _ig_filter_special(tokens, attributions):
-    """Filter special tokens and punctuation for IG, normalizing by the absolute sum to preserve signs."""
     import string
     PUNCT = set(string.punctuation)
     idx = [i for i, t in enumerate(tokens) if t not in SPECIAL_TOKENS and t not in PUNCT]
@@ -251,17 +238,14 @@ def ig_analysis():
 
     target = data.get('target_class', pred_class)
     
-    # Compute Integrated Gradients (full sequence length for the Attention matrix)
     attribution_full, _ = compute_integrated_gradients(_model, input_ids, attention_mask, target_class=target, steps=50)
     
     seq_len = input_ids.shape[1]
     attn_mask_np = attention_mask[0].cpu().numpy().astype(np.float32)
     
     with torch.no_grad():
-        # Get raw attention for baseline comparison
         raw_attn = get_raw_attention_distribution(_model, input_ids, attention_mask, valid_len)
         
-        # Build strict valid IG attention matrix 
         ig_normalized = make_ig_attention_matrix(attribution_full, seq_len, attn_mask_np)
 
         ig_valid = ig_normalized[:valid_len].numpy()
@@ -274,7 +258,6 @@ def ig_analysis():
             tau, _ = kendalltau(raw_attn, ig_valid)
             if np.isnan(tau): tau = 0.0
 
-        # Run Faithfulness test replacing attention with IG
         replacer = AttentionReplacer(_model, ig_normalized)
         replacer.attach()
         try:
@@ -288,17 +271,14 @@ def ig_analysis():
     flipped = pred_class != pred_ig
     prob_shift = abs(probs[0, pred_class].item() - probs_ig[0, pred_class].item())
 
-    # Subword pooling for UI presentation
     attribution = attribution_full[:valid_len]
     tokens = _tokenizer.convert_ids_to_tokens(input_ids[0])[:valid_len]
     pooled_tokens, pooled_attrs = pool_subword_attributions(tokens, attribution.tolist())
     _, pooled_raw = pool_subword_attributions(tokens, raw_attn.tolist())
     _, pooled_ig_dist = pool_subword_attributions(tokens, ig_valid.tolist())
     
-    # Filter punctuations and normalize accurately by absolute sum
     tokens_clean, ig_clean = _ig_filter_special(pooled_tokens, pooled_attrs.tolist())
     
-    # Normalize the distributions for the newly overlaid chart
     _, raw_dist_clean = _ig_filter_special(pooled_tokens, pooled_raw.tolist())
     _, ig_dist_clean = _ig_filter_special(pooled_tokens, pooled_ig_dist.tolist())
 

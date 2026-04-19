@@ -1,8 +1,3 @@
-"""
-Training script for Transformer-based Sentiment Classifier.
-Uses DistilBERT with fine-tuning on IMDB dataset.
-"""
-
 import json
 import torch
 import torch.nn as nn
@@ -25,21 +20,6 @@ def train_epoch(
     gradient_accumulation_steps: int = 1,
     max_grad_norm: float = 1.0
 ) -> dict:
-    """
-    Train for one epoch.
-    
-    Args:
-        model: The transformer model
-        dataloader: Training dataloader
-        optimizer: AdamW optimizer
-        scheduler: Learning rate scheduler
-        device: Device to train on
-        gradient_accumulation_steps: Number of steps to accumulate gradients
-        max_grad_norm: Maximum gradient norm for clipping
-        
-    Returns:
-        Dictionary with training metrics
-    """
     model.train()
     total_loss = 0
     correct = 0
@@ -49,31 +29,24 @@ def train_epoch(
     progress = tqdm(dataloader, desc="Training")
     
     for step, batch in enumerate(progress):
-        # Move to device
         input_ids = batch["input_ids"].to(device)
         attention_mask = batch["attention_mask"].to(device)
         labels = batch["labels"].to(device)
         
-        # Forward pass
         logits, _ = model(input_ids, attention_mask)
         
-        # Compute loss
         loss_fn = nn.CrossEntropyLoss()
         loss = loss_fn(logits, labels)
         
-        # Scale loss for gradient accumulation
         loss = loss / gradient_accumulation_steps
         loss.backward()
         
-        # Accumulate metrics
         total_loss += loss.item() * gradient_accumulation_steps
         predictions = torch.argmax(logits, dim=-1)
         correct += (predictions == labels).sum().item()
         total += labels.size(0)
         
-        # Update weights
         if (step + 1) % gradient_accumulation_steps == 0:
-            # Gradient clipping
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
             
             optimizer.step()
@@ -93,17 +66,6 @@ def evaluate(
     dataloader,
     device: torch.device
 ) -> dict:
-    """
-    Evaluate on validation/test set.
-    
-    Args:
-        model: The transformer model
-        dataloader: Evaluation dataloader
-        device: Device to evaluate on
-        
-    Returns:
-        Dictionary with evaluation metrics
-    """
     model.eval()
     total_loss = 0
     correct = 0
@@ -130,7 +92,6 @@ def evaluate(
             all_predictions.extend(predictions.cpu().tolist())
             all_labels.extend(labels.cpu().tolist())
     
-    # Calculate additional metrics
     from sklearn.metrics import precision_score, recall_score, f1_score
     
     precision = precision_score(all_labels, all_predictions, average='binary')
@@ -147,20 +108,16 @@ def evaluate(
 
 
 def main():
-    # Print configuration
     TransformerConfig.print_config()
     
-    # Set seed for reproducibility
     torch.manual_seed(TransformerConfig.SEED)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(TransformerConfig.SEED)
     
-    # Load tokenizer
     print("\nLoading tokenizer...")
     tokenizer = get_tokenizer(TransformerConfig.MODEL_NAME)
     print(f"Vocabulary size: {tokenizer.vocab_size}")
     
-    # Create dataloaders
     print("\nLoading data...")
     train_loader, test_loader = get_dataloaders(
         TransformerConfig.DATA_DIR,
@@ -169,7 +126,6 @@ def main():
         batch_size=TransformerConfig.BATCH_SIZE
     )
     
-    # Create model
     print("\nCreating model...")
     model = TransformerClassifier(
         model_name=TransformerConfig.MODEL_NAME,
@@ -178,16 +134,13 @@ def main():
     )
     model = model.to(TransformerConfig.DEVICE)
     
-    # Count parameters
     total_params, trainable_params = count_parameters(model)
     print(f"Total parameters: {total_params:,}")
     print(f"Trainable parameters: {trainable_params:,}")
     
-    # Calculate training steps
     num_training_steps = len(train_loader) * TransformerConfig.NUM_EPOCHS
     num_warmup_steps = int(num_training_steps * TransformerConfig.WARMUP_RATIO)
     
-    # Optimizer and scheduler
     optimizer = AdamW(
         model.parameters(),
         lr=TransformerConfig.LEARNING_RATE,
@@ -199,11 +152,6 @@ def main():
         num_training_steps=num_training_steps
     )
     
-    # Training loop
-    print("\n" + "=" * 60)
-    print("TRAINING")
-    print("=" * 60)
-    
     best_accuracy = 0
     best_metrics = None
     
@@ -211,7 +159,6 @@ def main():
         print(f"\nEpoch {epoch + 1}/{TransformerConfig.NUM_EPOCHS}")
         print("-" * 40)
         
-        # Train
         train_metrics = train_epoch(
             model, train_loader, optimizer, scheduler,
             TransformerConfig.DEVICE,
@@ -220,12 +167,10 @@ def main():
         )
         print(f"Train Loss: {train_metrics['loss']:.4f}, Accuracy: {train_metrics['accuracy']:.4f}")
         
-        # Evaluate
         test_metrics = evaluate(model, test_loader, TransformerConfig.DEVICE)
         print(f"Test Loss: {test_metrics['loss']:.4f}, Accuracy: {test_metrics['accuracy']:.4f}")
         print(f"Precision: {test_metrics['precision']:.4f}, Recall: {test_metrics['recall']:.4f}, F1: {test_metrics['f1']:.4f}")
         
-        # Save best model
         if test_metrics["accuracy"] > best_accuracy:
             best_accuracy = test_metrics["accuracy"]
             best_metrics = test_metrics
@@ -242,11 +187,8 @@ def main():
             )
             print(f"Saved best model (accuracy: {best_accuracy:.4f})")
     
-    print("\n" + "=" * 60)
-    print(f"Training complete! Best accuracy: {best_accuracy:.4f}")
-    print("=" * 60)
+    print(f"\nTraining complete! Best accuracy: {best_accuracy:.4f}")
     
-    # Save final metrics
     if best_metrics:
         metrics_to_save = {
             "test_accuracy": float(best_metrics["accuracy"]),

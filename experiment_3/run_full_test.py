@@ -1,12 +1,3 @@
-"""
-Full Test Script for Experiment 3: Comprehensiveness and Sufficiency Tests
-
-This script processes ALL test files from IMDB dataset (approximately 25,000 reviews).
-It runs comprehensiveness and sufficiency tests on all reviews and saves results to JSON.
-
-Usage:
-    python run_full_test.py --output results/full_test_results.json
-"""
 
 import torch
 import json
@@ -21,7 +12,6 @@ from config import ExperimentConfig
 from comprehensiveness import ComprehensivenessTester
 from sufficiency import SufficiencyTester
 
-# Import from parent directory
 sys.path.insert(0, str(ExperimentConfig.PROJECT_ROOT))
 
 from models.model import AttentionClassifier
@@ -29,14 +19,11 @@ from data.preprocessing import Preprocessor
 
 
 def load_model_and_preprocessor():
-    """Load trained BiLSTM model and preprocessor."""
-    # Load preprocessor
     preprocessor = Preprocessor.from_vocab_file(
         vocab_path=str(ExperimentConfig.VOCAB_FILE),
         max_length=ExperimentConfig.MAX_SEQ_LENGTH
     )
     
-    # Create model architecture
     model = AttentionClassifier(
         vocab_size=ExperimentConfig.VOCAB_SIZE,
         embedding_dim=ExperimentConfig.EMBEDDING_DIM,
@@ -51,7 +38,6 @@ def load_model_and_preprocessor():
         padding_idx=ExperimentConfig.PAD_IDX
     )
     
-    # Load trained weights
     try:
         checkpoint = torch.load(
             str(ExperimentConfig.CHECKPOINT_PATH),
@@ -71,14 +57,11 @@ def load_model_and_preprocessor():
 
 
 def get_all_review_files(pos_dir, neg_dir):
-    """Get all review files from both positive and negative directories."""
     
-    # Get positive reviews
     pos_files = sorted([f for f in os.listdir(pos_dir) if f.endswith('.txt')])
     pos_files = [{'path': pos_dir / f, 'filename': f, 'sentiment': 'positive'} 
                  for f in pos_files]
     
-    # Get negative reviews
     neg_files = sorted([f for f in os.listdir(neg_dir) if f.endswith('.txt')])
     neg_files = [{'path': neg_dir / f, 'filename': f, 'sentiment': 'negative'} 
                  for f in neg_files]
@@ -87,7 +70,6 @@ def get_all_review_files(pos_dir, neg_dir):
 
 
 def read_review(file_path):
-    """Read review text from file."""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read().strip()
@@ -96,17 +78,14 @@ def read_review(file_path):
 
 
 def run_full_test(output_file=None):
-    """Run comprehensiveness and sufficiency tests on ALL reviews in test dataset."""
     
     if output_file is None:
         output_file = Path(__file__).parent / "results" / "full_test_results.json"
     else:
         output_file = Path(output_file)
     
-    # Create output directory if it doesn't exist
     output_file.parent.mkdir(parents=True, exist_ok=True)
     
-    # Paths
     project_root = ExperimentConfig.PROJECT_ROOT
     pos_dir = project_root / "data" / "raw" / "imdb" / "test" / "pos"
     neg_dir = project_root / "data" / "raw" / "imdb" / "test" / "neg"
@@ -115,19 +94,15 @@ def run_full_test(output_file=None):
     print(f"Positive reviews directory: {pos_dir}")
     print(f"Negative reviews directory: {neg_dir}")
     
-    # Get all review files
     all_reviews = get_all_review_files(pos_dir, neg_dir)
     print(f"Total reviews found: {len(all_reviews)}")
     
-    # Load model and preprocessor once
     print("Loading model and preprocessor...")
     model, preprocessor = load_model_and_preprocessor()
     
-    # Initialize testers
     comp_tester = ComprehensivenessTester(model, preprocessor)
     suff_tester = SufficiencyTester(model, preprocessor)
     
-    # Initialize results structure
     full_results = {
         'metadata': {
             'timestamp': datetime.now().isoformat(),
@@ -144,25 +119,20 @@ def run_full_test(output_file=None):
     print(f"\nProcessing {len(all_reviews)} reviews...")
     print("=" * 80)
     
-    # Process each review
     for idx, review_info in enumerate(tqdm(all_reviews, desc="Processing reviews")):
         try:
-            # Read review
             review_text = read_review(review_info['path'])
             
-            # Run comprehensiveness test
             comp_results = comp_tester.compute_multiple_k(
                 review_text, 
                 k_values=ExperimentConfig.TOP_K_VALUES
             )
             
-            # Run sufficiency test
             suff_results = suff_tester.compute_multiple_k(
                 review_text,
                 k_values=ExperimentConfig.TOP_K_VALUES
             )
             
-            # Store results
             review_detail = {
                 'index': idx,
                 'filename': review_info['filename'],
@@ -189,7 +159,6 @@ def run_full_test(output_file=None):
     print(f"Reviews processed: {full_results['reviews_processed']}")
     print(f"Reviews failed: {full_results['reviews_failed']}")
     
-    # Save results
     print(f"\nSaving results to {output_file}...")
     with open(output_file, 'w') as f:
         json.dump(full_results, f, indent=2, default=str)
@@ -219,7 +188,6 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    # Override device if specified
     if args.device != 'auto':
         if args.device.lower() == 'cpu':
             ExperimentConfig.DEVICE = torch.device('cpu')
@@ -228,5 +196,4 @@ if __name__ == '__main__':
     
     print(f"Using device: {ExperimentConfig.DEVICE}")
     
-    # Run the full test
     run_full_test(output_file=args.output)

@@ -1,6 +1,3 @@
-"""
-Flask routes for Experiment 1 - Adversarial Attention
-"""
 
 import sys
 import json
@@ -26,7 +23,6 @@ initialized = False
 
 
 def initialize_experiment_models():
-    """Initialize models for experiment."""
     global bilstm_model, vocab, initialized
     
     if initialized:
@@ -76,7 +72,6 @@ def initialize_experiment_models():
 
 @experiment2_bp.route('/analyze', methods=['POST'])
 def analyze_adversarial():
-    """Run adversarial attention analysis on input text."""
     try:
         if not initialize_experiment_models():
             return jsonify({'error': 'Model could not be loaded. Make sure bilstm_model.pt exists in checkpoints/'}), 500
@@ -137,7 +132,6 @@ def analyze_adversarial():
 
 @experiment2_bp.route('/sample', methods=['GET'])
 def get_sample_texts():
-    """Get sample texts for demonstration."""
     samples = {
         'positive': [
             "This movie was absolutely fantastic! Great acting and plot.",
@@ -159,7 +153,6 @@ def get_sample_texts():
 
 @experiment2_bp.route('/info', methods=['GET'])
 def get_experiment_info():
-    """Get information about the experiment."""
     info = {
         'title': 'Experiment 1: Adversarial Attention Attack',
         'description': '''
@@ -184,7 +177,6 @@ def get_experiment_info():
 
 @experiment2_bp.route('/batch', methods=['POST'])
 def run_batch_analysis():
-    """Run analysis on multiple texts."""
     try:
         initialize_experiment_models()
         
